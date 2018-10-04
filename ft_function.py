@@ -27,152 +27,118 @@ class FT260_STATUS(Enum):
     FT260_OTHER_ERROR = 17
 
 
-enum FT260_GPIO2_Pin
-{
-    FT260_GPIO2_GPIO    = 0,
-    FT260_GPIO2_SUSPOUT = 1,
-    FT260_GPIO2_PWREN   = 2,
+class FT260_GPIO2_Pin(Enum):
+    FT260_GPIO2_GPIO    = 0
+    FT260_GPIO2_SUSPOUT = 1
+    FT260_GPIO2_PWREN   = 2
     FT260_GPIO2_TX_LED  = 4
-};
 
-enum FT260_GPIOA_Pin
-{
-    FT260_GPIOA_GPIO      = 0,
-    FT260_GPIOA_TX_ACTIVE = 3,
+class FT260_GPIOA_Pin(Enum):
+    FT260_GPIOA_GPIO      = 0
+    FT260_GPIOA_TX_ACTIVE = 3
     FT260_GPIOA_TX_LED    = 4
-};
 
-enum FT260_GPIOG_Pin
-{
-    FT260_GPIOG_GPIO     = 0,
-    FT260_GPIOG_PWREN    = 2,
-    FT260_GPIOG_RX_LED   = 5,
+class FT260_GPIOG_Pin(Enum):
+    FT260_GPIOG_GPIO     = 0
+    FT260_GPIOG_PWREN    = 2
+    FT260_GPIOG_RX_LED   = 5
     FT260_GPIOG_BCD_DET  = 6
-};
 
-enum FT260_Clock_Rate
-{
-    FT260_SYS_CLK_12M = 0,
-    FT260_SYS_CLK_24M,
-    FT260_SYS_CLK_48M,
-};
+class FT260_Clock_Rate(Enum):
+    FT260_SYS_CLK_12M = 0
+    FT260_SYS_CLK_24M = 1
+    FT260_SYS_CLK_48M = 2
 
-enum FT260_Interrupt_Trigger_Type
-{
-    FT260_INTR_RISING_EDGE = 0,
-    FT260_INTR_LEVEL_HIGH,
-    FT260_INTR_FALLING_EDGE,
-    FT260_INTR_LEVEL_LOW
-};
+class FT260_Interrupt_Trigger_Type(Enum):
+    FT260_INTR_RISING_EDGE = 0
+    FT260_INTR_LEVEL_HIGH = 1
+    FT260_INTR_FALLING_EDGE = 2
+    FT260_INTR_LEVEL_LOW = 3
 
-enum FT260_Interrupt_Level_Time_Delay
-{
-    FT260_INTR_DELY_1MS = 1,
-    FT260_INTR_DELY_5MS,
-    FT260_INTR_DELY_30MS
-};
+class FT260_Interrupt_Level_Time_Delay(Enum):
+    FT260_INTR_DELY_1MS = 1
+    FT260_INTR_DELY_5MS = 2
+    FT260_INTR_DELY_30MS = 3
 
-enum FT260_Suspend_Out_Polarity
-{
-    FT260_SUSPEND_OUT_LEVEL_HIGH = 0,
-    FT260_SUSPEND_OUT_LEVEL_LOW
-};
+class FT260_Suspend_Out_Polarity(Enum):
+    FT260_SUSPEND_OUT_LEVEL_HIGH = 0
+    FT260_SUSPEND_OUT_LEVEL_LOW = 1
 
-enum FT260_UART_Mode
-{
-    FT260_UART_OFF = 0,
-    FT260_UART_RTS_CTS_MODE,        // hardware flow control RTS, CTS mode
-    FT260_UART_DTR_DSR_MODE,        // hardware flow control DTR, DSR mode
-    FT260_UART_XON_XOFF_MODE,       // software flow control mode
-    FT260_UART_NO_FLOW_CTRL_MODE    // no flow control mode
-};
+class FT260_UART_Mode(Enum):
+    FT260_UART_OFF = 0
+    FT260_UART_RTS_CTS_MODE = 1        # hardware flow control RTS, CTS mode
+    FT260_UART_DTR_DSR_MODE = 2        # hardware flow control DTR, DSR mode
+    FT260_UART_XON_XOFF_MODE = 3       # software flow control mode
+    FT260_UART_NO_FLOW_CTRL_MODE = 4    # no flow control mode
 
-enum FT260_Data_Bit
-{
-    FT260_DATA_BIT_7 = 7,
+class FT260_Data_Bit(Enum):
+    FT260_DATA_BIT_7 = 7
     FT260_DATA_BIT_8 = 8
-};
 
-enum FT260_Stop_Bit
-{
-    FT260_STOP_BITS_1 = 0,
+class FT260_Stop_Bit(Enum):
+    FT260_STOP_BITS_1 = 0
     FT260_STOP_BITS_2 = 2
-};
 
-enum FT260_Parity
-{
-    FT260_PARITY_NONE = 0,
-    FT260_PARITY_ODD,
-    FT260_PARITY_EVEN,
-    FT260_PARITY_MARK,
-    FT260_PARITY_SPACE
-};
+class FT260_Parity(Enum):
+    FT260_PARITY_NONE = 0
+    FT260_PARITY_ODD = 1
+    FT260_PARITY_EVEN = 2
+    FT260_PARITY_MARK = 3
+    FT260_PARITY_SPACE = 4
 
-enum FT260_RI_Wakeup_Type
-{
-    FT260_RI_WAKEUP_RISING_EDGE = 0,
-    FT260_RI_WAKEUP_FALLING_EDGE,
-};
+class FT260_RI_Wakeup_Type(Enum):
+    FT260_RI_WAKEUP_RISING_EDGE = 0
+    FT260_RI_WAKEUP_FALLING_EDGE = 1
 
 struct FT260_GPIO_Report
 {
-    WORD value;       // GPIO0~5 values
-    WORD dir;         // GPIO0~5 directions
-    WORD gpioN_value; // GPIOA~H values
-    WORD gpioN_dir;   // GPIOA~H directions
+    WORD value;       # GPIO0~5 values
+    WORD dir;         # GPIO0~5 directions
+    WORD gpioN_value; # GPIOA~H values
+    WORD gpioN_dir;   # GPIOA~H directions
 };
 
-enum FT260_GPIO_DIR
-{
-    FT260_GPIO_IN = 0,
-    FT260_GPIO_OUT
-};
+class FT260_GPIO_DIR(Enum):
+    FT260_GPIO_IN = 0
+    FT260_GPIO_OUT = 1
 
-enum FT260_GPIO
-{
-    FT260_GPIO_0 = 1 << 0,
-    FT260_GPIO_1 = 1 << 1,
-    FT260_GPIO_2 = 1 << 2,
-    FT260_GPIO_3 = 1 << 3,
-    FT260_GPIO_4 = 1 << 4,
-    FT260_GPIO_5 = 1 << 5,
-    FT260_GPIO_A = 1 << 6,
-    FT260_GPIO_B = 1 << 7,
-    FT260_GPIO_C = 1 << 8,
-    FT260_GPIO_D = 1 << 9,
-    FT260_GPIO_E = 1 << 10,
-    FT260_GPIO_F = 1 << 11,
-    FT260_GPIO_G = 1 << 12,
+class FT260_GPIO(Enum):
+    FT260_GPIO_0 = 1 << 0
+    FT260_GPIO_1 = 1 << 1
+    FT260_GPIO_2 = 1 << 2
+    FT260_GPIO_3 = 1 << 3
+    FT260_GPIO_4 = 1 << 4
+    FT260_GPIO_5 = 1 << 5
+    FT260_GPIO_A = 1 << 6
+    FT260_GPIO_B = 1 << 7
+    FT260_GPIO_C = 1 << 8
+    FT260_GPIO_D = 1 << 9
+    FT260_GPIO_E = 1 << 10
+    FT260_GPIO_F = 1 << 11
+    FT260_GPIO_G = 1 << 12
     FT260_GPIO_H = 1 << 13
-};
 
-enum FT260_I2C_FLAG
-{
-    FT260_I2C_NONE  = 0,
-    FT260_I2C_START = 0x02,
-    FT260_I2C_REPEATED_START = 0x03,
-    FT260_I2C_STOP  = 0x04,
+class FT260_I2C_FLAG(Enum):
+    FT260_I2C_NONE  = 0
+    FT260_I2C_START = 0x02
+    FT260_I2C_REPEATED_START = 0x03
+    FT260_I2C_STOP  = 0x04
     FT260_I2C_START_AND_STOP = 0x06
-};
 
-enum FT260_PARAM_1
-{
-    FT260_DS_CTL0 = 0x50,
-    FT260_DS_CTL3 = 0x51,
-    FT260_DS_CTL4 = 0x52,
-    FT260_SR_CTL0 = 0x53,
-    FT260_GPIO_PULL_UP    = 0x61,
-    FT260_GPIO_OPEN_DRAIN = 0x62,
-    FT260_GPIO_PULL_DOWN  = 0x63,
+class FT260_PARAM_1(Enum):
+    FT260_DS_CTL0 = 0x50
+    FT260_DS_CTL3 = 0x51
+    FT260_DS_CTL4 = 0x52
+    FT260_SR_CTL0 = 0x53
+    FT260_GPIO_PULL_UP    = 0x61
+    FT260_GPIO_OPEN_DRAIN = 0x62
+    FT260_GPIO_PULL_DOWN  = 0x63
     FT260_GPIO_GPIO_SLEW_RATE = 0x65
-};
 
-enum FT260_PARAM_2
-{
-    FT260_GPIO_GROUP_SUSPEND_0 = 0x10, // for gpio 0 ~ gpio 5
-    FT260_GPIO_GROUP_SUSPEND_A = 0x11, // for gpio A ~ gpio H
+class FT260_PARAM_2(Enum):
+    FT260_GPIO_GROUP_SUSPEND_0 = 0x10 # for gpio 0 ~ gpio 5
+    FT260_GPIO_GROUP_SUSPEND_A = 0x11 # for gpio A ~ gpio H
     FT260_GPIO_DRIVE_STRENGTH = 0x64
-};
 
 #pragma pack(push, 1)
 typedef struct
