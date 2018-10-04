@@ -9,7 +9,7 @@ ftGetDevicePath.argtypes = (POINTER(c_wchar), c_ulong, c_ulong)
 ftGetDevicePath.restype = c_int
 
 ftOpen = ftlib.FT260_Open
-ftOpen.argtypes = (int iDevice, POINTER(c_void_p))
+ftOpen.argtypes = (c_int, POINTER(c_void_p))
 ftOpen.restype = c_int
 
 ftOpenByVidPid = ftlib.FT260_OpenByVidPid
