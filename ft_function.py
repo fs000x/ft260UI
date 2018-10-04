@@ -1,3 +1,33 @@
+from ctypes import *
+from enum import *
+
+ftdll = "lib/LibFT260.dll"
+
+ftlib = windll.LoadLibrary(ftdll)
+
+
+class FT260_STATUS(Enum):
+    FT260_OK = 0
+    FT260_INVALID_HANDLE = 1
+    FT260_DEVICE_NOT_FOUND = 2
+    FT260_DEVICE_NOT_OPENED = 3
+    FT260_DEVICE_OPEN_FAIL = 4
+    FT260_DEVICE_CLOSE_FAIL = 5
+    FT260_INCORRECT_INTERFACE = 6
+    FT260_INCORRECT_CHIP_MODE = 7
+    FT260_DEVICE_MANAGER_ERROR = 8
+    FT260_IO_ERROR = 9
+    FT260_INVALID_PARAMETER = 10
+    FT260_NULL_BUFFER_POINTER = 11
+    FT260_BUFFER_SIZE_ERROR = 12
+    FT260_UART_SET_FAIL = 13
+    FT260_RX_NO_DATA = 14
+    FT260_GPIO_WRONG_DIRECTION = 15
+    FT260_INVALID_DEVICE = 16
+    FT260_OTHER_ERROR = 17
+
+
+
 
 # FT260 General Functions
 ftCreateDeviceList = ftlib.FT260_CreateDeviceList
