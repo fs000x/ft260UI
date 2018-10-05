@@ -57,7 +57,12 @@ def openTest(Vid, Pid):
         print("Uart Init OK")
 
     # config TX_ACTIVE for UART 485
-    ftSelectGpioAFunction(handle, FT260_GPIOA_Pin.FT260_GPIOA_TX_ACTIVE)
+    ftStatus = ftSelectGpioAFunction(handle, FT260_GPIOA_Pin.FT260_GPIOA_TX_ACTIVE)
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        print("Uart TX_ACTIVE Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        return 0
+    else:
+        print("Uart TX_ACTIVE OK")
 
     # config UART
     ftUART_SetFlowControl(handle, FT260_UART_Mode.FT260_UART_XON_XOFF_MODE);
@@ -87,7 +92,6 @@ def openTest(Vid, Pid):
 
 
     print("Prepare to read data. Press Enter to continue.\r\n")
-    tmpstr = input("getchar:")
 
 
     while not input("getchar:") == 'c':
