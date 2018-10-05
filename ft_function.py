@@ -238,7 +238,7 @@ ftSetParam_U8.argtypes = (c_void_p, FT260_PARAM_1 param, c_uint8)
 ftSetParam_U8.restype = c_int
 
 ftSetParam_U16 = ftlib.FT260_SetParam_U16
-ftSetParam_U16.argtypes = (c_void_p, FT260_PARAM_2 param, uint16 value)
+ftSetParam_U16.argtypes = (c_void_p, FT260_PARAM_2 param, c_uint16)
 ftSetParam_U16.restype = c_int
 
 
