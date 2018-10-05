@@ -5,6 +5,16 @@ ftdll = "lib/LibFT260.dll"
 
 ftlib = windll.LoadLibrary(ftdll)
 
+# bits mask
+BIT0                   = 0x01
+BIT1                   = 0x02
+BIT2                   = 0x04
+BIT3                   = 0x08
+BIT4                   = 0x10
+BIT5                   = 0x20
+BIT6                   = 0x40
+BIT7                   = 0x80
+
 class CtypesEnum(IntEnum):
     """A ctypes-compatible IntEnum superclass."""
     @classmethod
