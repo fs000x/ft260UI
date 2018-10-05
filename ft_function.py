@@ -371,7 +371,7 @@ ftGPIO_Get.argtypes = (c_void_p, FT260_GPIO_Report *report)
 ftGPIO_Get.restype = c_int
 
 ftGPIO_SetDir = ftlib.FT260_GPIO_SetDir
-ftGPIO_SetDir.argtypes = (c_void_p, c_ushort, BYTE dir)
+ftGPIO_SetDir.argtypes = (c_void_p, c_ushort, c_uchar)
 ftGPIO_SetDir.restype = c_int
 
 ftGPIO_Read = ftlib.FT260_GPIO_Read
@@ -379,6 +379,6 @@ ftGPIO_Read.argtypes = (c_void_p, c_ushort, c_uchar_p)
 ftGPIO_Read.restype = c_int
 
 ftGPIO_Write = ftlib.FT260_GPIO_Write
-ftGPIO_Write.argtypes = (c_void_p, c_ushort, BYTE value)
+ftGPIO_Write.argtypes = (c_void_p, c_ushort, c_uchar)
 ftGPIO_Write.restype = c_int
 
