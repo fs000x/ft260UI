@@ -270,11 +270,11 @@ ftI2CMaster_Init.argtypes = (c_void_p, c_uint32)
 ftI2CMaster_Init.restype = c_int
 
 ftI2CMaster_Read = ftlib.FT260_I2CMaster_Read
-ftI2CMaster_Read.argtypes = (c_void_p, c_uint8, FT260_I2C_FLAG, LPVOID lpBuffer, c_ulong, POINTER(c_ulong))
+ftI2CMaster_Read.argtypes = (c_void_p, c_uint8, FT260_I2C_FLAG, c_void_p, c_ulong, POINTER(c_ulong))
 ftI2CMaster_Read.restype = c_int
 
 ftI2CMaster_Write = ftlib.FT260_I2CMaster_Write
-ftI2CMaster_Write.argtypes = (c_void_p, c_uint8, FT260_I2C_FLAG, LPVOID lpBuffer, c_ulong, POINTER(c_ulong))
+ftI2CMaster_Write.argtypes = (c_void_p, c_uint8, FT260_I2C_FLAG, c_void_p, c_ulong, POINTER(c_ulong))
 ftI2CMaster_Write.restype = c_int
 
 ftI2CMaster_GetStatus = ftlib.FT260_I2CMaster_GetStatus
@@ -325,11 +325,11 @@ ftUART_GetQueueStatus.argtypes = (c_void_p, POINTER(c_ulong))
 ftUART_GetQueueStatus.restype = c_int
 
 ftUART_Read = ftlib.FT260_UART_Read
-ftUART_Read.argtypes = (c_void_p, LPVOID lpBuffer, c_ulong, c_ulong, POINTER(c_ulong))
+ftUART_Read.argtypes = (c_void_p, c_void_p, c_ulong, c_ulong, POINTER(c_ulong))
 ftUART_Read.restype = c_int
 
 ftUART_Write = ftlib.FT260_UART_Write
-ftUART_Write.argtypes = (c_void_p, LPVOID lpBuffer, c_ulong, c_ulong, POINTER(c_ulong))
+ftUART_Write.argtypes = (c_void_p, c_void_p, c_ulong, c_ulong, POINTER(c_ulong))
 ftUART_Write.restype = c_int
 
 ftUART_Reset = ftlib.FT260_UART_Reset
