@@ -5,8 +5,13 @@ ftdll = "lib/LibFT260.dll"
 
 ftlib = windll.LoadLibrary(ftdll)
 
+class CtypesEnum(IntEnum):
+    """A ctypes-compatible IntEnum superclass."""
+    @classmethod
+    def from_param(cls, obj):
+        return int(obj)
 
-class FT260_STATUS(Enum):
+class FT260_STATUS(CtypesEnum):
     FT260_OK = 0
     FT260_INVALID_HANDLE = 1
     FT260_DEVICE_NOT_FOUND = 2
@@ -27,66 +32,66 @@ class FT260_STATUS(Enum):
     FT260_OTHER_ERROR = 17
 
 
-class FT260_GPIO2_Pin(Enum):
+class FT260_GPIO2_Pin(CtypesEnum):
     FT260_GPIO2_GPIO    = 0
     FT260_GPIO2_SUSPOUT = 1
     FT260_GPIO2_PWREN   = 2
     FT260_GPIO2_TX_LED  = 4
 
-class FT260_GPIOA_Pin(Enum):
+class FT260_GPIOA_Pin(CtypesEnum):
     FT260_GPIOA_GPIO      = 0
     FT260_GPIOA_TX_ACTIVE = 3
     FT260_GPIOA_TX_LED    = 4
 
-class FT260_GPIOG_Pin(Enum):
+class FT260_GPIOG_Pin(CtypesEnum):
     FT260_GPIOG_GPIO     = 0
     FT260_GPIOG_PWREN    = 2
     FT260_GPIOG_RX_LED   = 5
     FT260_GPIOG_BCD_DET  = 6
 
-class FT260_Clock_Rate(Enum):
+class FT260_Clock_Rate(CtypesEnum):
     FT260_SYS_CLK_12M = 0
     FT260_SYS_CLK_24M = 1
     FT260_SYS_CLK_48M = 2
 
-class FT260_Interrupt_Trigger_Type(Enum):
+class FT260_Interrupt_Trigger_Type(CtypesEnum):
     FT260_INTR_RISING_EDGE = 0
     FT260_INTR_LEVEL_HIGH = 1
     FT260_INTR_FALLING_EDGE = 2
     FT260_INTR_LEVEL_LOW = 3
 
-class FT260_Interrupt_Level_Time_Delay(Enum):
+class FT260_Interrupt_Level_Time_Delay(CtypesEnum):
     FT260_INTR_DELY_1MS = 1
     FT260_INTR_DELY_5MS = 2
     FT260_INTR_DELY_30MS = 3
 
-class FT260_Suspend_Out_Polarity(Enum):
+class FT260_Suspend_Out_Polarity(CtypesEnum):
     FT260_SUSPEND_OUT_LEVEL_HIGH = 0
     FT260_SUSPEND_OUT_LEVEL_LOW = 1
 
-class FT260_UART_Mode(Enum):
+class FT260_UART_Mode(CtypesEnum):
     FT260_UART_OFF = 0
     FT260_UART_RTS_CTS_MODE = 1        # hardware flow control RTS, CTS mode
     FT260_UART_DTR_DSR_MODE = 2        # hardware flow control DTR, DSR mode
     FT260_UART_XON_XOFF_MODE = 3       # software flow control mode
     FT260_UART_NO_FLOW_CTRL_MODE = 4    # no flow control mode
 
-class FT260_Data_Bit(Enum):
+class FT260_Data_Bit(CtypesEnum):
     FT260_DATA_BIT_7 = 7
     FT260_DATA_BIT_8 = 8
 
-class FT260_Stop_Bit(Enum):
+class FT260_Stop_Bit(CtypesEnum):
     FT260_STOP_BITS_1 = 0
     FT260_STOP_BITS_2 = 2
 
-class FT260_Parity(Enum):
+class FT260_Parity(CtypesEnum):
     FT260_PARITY_NONE = 0
     FT260_PARITY_ODD = 1
     FT260_PARITY_EVEN = 2
     FT260_PARITY_MARK = 3
     FT260_PARITY_SPACE = 4
 
-class FT260_RI_Wakeup_Type(Enum):
+class FT260_RI_Wakeup_Type(CtypesEnum):
     FT260_RI_WAKEUP_RISING_EDGE = 0
     FT260_RI_WAKEUP_FALLING_EDGE = 1
 
@@ -110,11 +115,11 @@ class FT260_GPIO_Report(Structure):
 
 
 
-class FT260_GPIO_DIR(Enum):
+class FT260_GPIO_DIR(CtypesEnum):
     FT260_GPIO_IN = 0
     FT260_GPIO_OUT = 1
 
-class FT260_GPIO(Enum):
+class FT260_GPIO(CtypesEnum):
     FT260_GPIO_0 = 1 << 0
     FT260_GPIO_1 = 1 << 1
     FT260_GPIO_2 = 1 << 2
@@ -130,14 +135,14 @@ class FT260_GPIO(Enum):
     FT260_GPIO_G = 1 << 12
     FT260_GPIO_H = 1 << 13
 
-class FT260_I2C_FLAG(Enum):
+class FT260_I2C_FLAG(CtypesEnum):
     FT260_I2C_NONE  = 0
     FT260_I2C_START = 0x02
     FT260_I2C_REPEATED_START = 0x03
     FT260_I2C_STOP  = 0x04
     FT260_I2C_START_AND_STOP = 0x06
 
-class FT260_PARAM_1(Enum):
+class FT260_PARAM_1(CtypesEnum):
     FT260_DS_CTL0 = 0x50
     FT260_DS_CTL3 = 0x51
     FT260_DS_CTL4 = 0x52
@@ -147,7 +152,7 @@ class FT260_PARAM_1(Enum):
     FT260_GPIO_PULL_DOWN  = 0x63
     FT260_GPIO_GPIO_SLEW_RATE = 0x65
 
-class FT260_PARAM_2(Enum):
+class FT260_PARAM_2(CtypesEnum):
     FT260_GPIO_GROUP_SUSPEND_0 = 0x10 # for gpio 0 ~ gpio 5
     FT260_GPIO_GROUP_SUSPEND_A = 0x11 # for gpio A ~ gpio H
     FT260_GPIO_DRIVE_STRENGTH = 0x64
@@ -278,7 +283,7 @@ ftI2CMaster_Write.argtypes = [c_void_p, c_uint8, FT260_I2C_FLAG, c_void_p, c_ulo
 ftI2CMaster_Write.restype = c_int
 
 ftI2CMaster_GetStatus = ftlib.FT260_I2CMaster_GetStatus
-ftI2CMaster_GetStatus.argtypes = [c_void_p, c_uint8_p]
+ftI2CMaster_GetStatus.argtypes = [c_void_p, POINTER(c_uint8)]
 ftI2CMaster_GetStatus.restype = c_int
 
 ftI2CMaster_Reset = ftlib.FT260_I2CMaster_Reset
@@ -313,7 +318,7 @@ ftUART_SetBreakOff.argtypes = [c_void_p]
 ftUART_SetBreakOff.restype = c_int
 
 ftUART_SetXonXoffChar = ftlib.FT260_UART_SetXonXoffChar
-ftUART_SetXonXoffChar.argtypes = [c_void_p, c_uchar, c_uchar]
+ftUART_SetXonXoffChar.argtypes = [c_void_p, c_ubyte, c_ubyte]
 ftUART_SetXonXoffChar.restype = c_int
 
 ftUART_GetConfig = ftlib.FT260_UART_GetConfig
@@ -338,7 +343,7 @@ ftUART_Reset.restype = c_int
 
 
 ftUART_GetDcdRiStatus = ftlib.FT260_UART_GetDcdRiStatus
-ftUART_GetDcdRiStatus.argtypes = [c_void_p, c_uint8_p]
+ftUART_GetDcdRiStatus.argtypes = [c_void_p, POINTER(c_uint8)]
 ftUART_GetDcdRiStatus.restype = c_int
 
 ftUART_EnableRiWakeup = ftlib.FT260_UART_EnableRiWakeup
@@ -352,11 +357,11 @@ ftUART_SetRiWakeupConfig.restype = c_int
 
 # Interrupt is transmitted by UART interface
 ftGetInterruptFlag = ftlib.FT260_GetInterruptFlag
-ftGetInterruptFlag.argtypes = [c_void_p, c_int_p]
+ftGetInterruptFlag.argtypes = [c_void_p, POINTER(c_int)]
 ftGetInterruptFlag.restype = c_int
 
 ftCleanInterruptFlag = ftlib.FT260_CleanInterruptFlag
-ftCleanInterruptFlag.argtypes = [c_void_p, c_int_p]
+ftCleanInterruptFlag.argtypes = [c_void_p, POINTER(c_int)]
 ftCleanInterruptFlag.restype = c_int
 
 
@@ -371,14 +376,14 @@ ftGPIO_Get.argtypes = [c_void_p, POINTER(FT260_GPIO_Report)]
 ftGPIO_Get.restype = c_int
 
 ftGPIO_SetDir = ftlib.FT260_GPIO_SetDir
-ftGPIO_SetDir.argtypes = [c_void_p, c_ushort, c_uchar]
+ftGPIO_SetDir.argtypes = [c_void_p, c_ushort, c_ubyte]
 ftGPIO_SetDir.restype = c_int
 
 ftGPIO_Read = ftlib.FT260_GPIO_Read
-ftGPIO_Read.argtypes = [c_void_p, c_ushort, c_uchar_p]
+ftGPIO_Read.argtypes = [c_void_p, c_ushort, POINTER(c_ubyte)]
 ftGPIO_Read.restype = c_int
 
 ftGPIO_Write = ftlib.FT260_GPIO_Write
-ftGPIO_Write.argtypes = [c_void_p, c_ushort, c_uchar]
+ftGPIO_Write.argtypes = [c_void_p, c_ushort, c_ubyte]
 ftGPIO_Write.restype = c_int
 
