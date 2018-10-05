@@ -32,12 +32,9 @@ def findDeviceInPaths(Vid, Pid):
         print("Open device OK")
         print("Close status %s\r\n" % FT260_STATUS(ftClose(handle)))
     '''
-def openTest(Vid, Pid):
+def openFtAsUart(Vid, Pid):
     ftStatus = c_int(0)
     handle = c_void_p()
-
-    if not findDeviceInPaths(Vid, Pid):
-        return 0
 
     # mode 0 is I2C, mode 1 is UART
     ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
@@ -78,8 +75,10 @@ def openTest(Vid, Pid):
     else:
         print("config baud:%ld, ctrl:%d, data_bit:%d, stop_bit:%d, parity:%d, breaking:%d\r\n" % (
             uartConfig.baud_rate, uartConfig.flow_ctrl, uartConfig.data_bit, uartConfig.stop_bit, uartConfig.parity, uartConfig.breaking))
+    return handle
 
 
+def ftUartWrite(handle):
     # Write data
     dwRealAccessData = c_ulong(0)
     bufferData = c_char_p(b"abcdefghij")
@@ -91,11 +90,13 @@ def openTest(Vid, Pid):
         print("Write bytes : %d\r\n" % dwRealAccessData.value)
 
 
-    print("Prepare to read data. Press Enter to continue.\r\n")
 
+def ftUartReadLoop(handle):
+    print("Prepare to read data. Press Enter to continue.\r\n")
 
     while not input("getchar:") == 'c':
         # Read data
+        dwRealAccessData = c_ulong(0)
         dwAvailableData = c_ulong(0)
         buffer2Data = c_char_p(b'\0'*200)
         buffer2 = cast(buffer2Data, c_void_p)
@@ -124,13 +125,16 @@ def openTest(Vid, Pid):
     ftUART_EnableRiWakeup(handle, 1);
     ftSetWakeupInterrupt(handle, 0);
     ftUART_SetRiWakeupConfig(handle, FT260_RI_Wakeup_Type.FT260_RI_WAKEUP_RISING_EDGE);
-
-
     print("\r\nMake PC enter suspend, and then make RI Pin rise.\r\n");
-    tmpstr = input("getchar:")
 
 
-    ftClose(handle);
 
+if not findDeviceInPaths(FT260_Vid, FT260_Vid):
+    exit()
 
-openTest(FT260_Vid, FT260_Pid)
+uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
+ftUartWrite(uartHandle)
+ftUartReadLoop(uartHandle)
+
+tmpstr = input("getchar:")
+ftClose(uartHandle)
