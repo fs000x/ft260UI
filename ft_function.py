@@ -90,6 +90,7 @@ class FT260_RI_Wakeup_Type(Enum):
     FT260_RI_WAKEUP_RISING_EDGE = 0
     FT260_RI_WAKEUP_FALLING_EDGE = 1
 
+'''
 struct FT260_GPIO_Report
 {
     WORD value;       # GPIO0~5 values
@@ -97,6 +98,17 @@ struct FT260_GPIO_Report
     WORD gpioN_value; # GPIOA~H values
     WORD gpioN_dir;   # GPIOA~H directions
 };
+'''
+class FT260_GPIO_Report(Structure):
+    _pack_ = 1
+    _fields_ = [
+                ('value', c_ushort),
+                ('dir', c_ushort),
+                ('gpioN_value', c_ushort),
+                ('gpioN_dir', c_ushort),
+                ]
+
+
 
 class FT260_GPIO_DIR(Enum):
     FT260_GPIO_IN = 0
@@ -140,6 +152,7 @@ class FT260_PARAM_2(Enum):
     FT260_GPIO_GROUP_SUSPEND_A = 0x11 # for gpio A ~ gpio H
     FT260_GPIO_DRIVE_STRENGTH = 0x64
 
+'''
 #pragma pack(push, 1)
 typedef struct
 {
@@ -151,6 +164,17 @@ typedef struct
     u8 breaking;
 } UartConfig;
 #pragma pack(pop)
+'''
+class UartConfig(Structure):
+    _pack_ = 1
+    _fields_ = [
+                ('flow_ctrl', c_uint8),
+                ('baud_rate', c_uint32),
+                ('data_bit', c_uint8),
+                ('parity', c_uint8),
+                ('stop_bit', c_uint8),
+                ('breaking', c_uint8),
+                ]
 
 
 
