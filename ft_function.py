@@ -278,7 +278,7 @@ ftI2CMaster_Write.argtypes = (c_void_p, uint8 deviceAddress, FT260_I2C_FLAG flag
 ftI2CMaster_Write.restype = c_int
 
 ftI2CMaster_GetStatus = ftlib.FT260_I2CMaster_GetStatus
-ftI2CMaster_GetStatus.argtypes = (c_void_p, uint8* status)
+ftI2CMaster_GetStatus.argtypes = (c_void_p, c_uint8_p)
 ftI2CMaster_GetStatus.restype = c_int
 
 ftI2CMaster_Reset = ftlib.FT260_I2CMaster_Reset
@@ -338,7 +338,7 @@ ftUART_Reset.restype = c_int
 
 
 ftUART_GetDcdRiStatus = ftlib.FT260_UART_GetDcdRiStatus
-ftUART_GetDcdRiStatus.argtypes = (c_void_p, uint8* value)
+ftUART_GetDcdRiStatus.argtypes = (c_void_p, c_uint8_p)
 ftUART_GetDcdRiStatus.restype = c_int
 
 ftUART_EnableRiWakeup = ftlib.FT260_UART_EnableRiWakeup
