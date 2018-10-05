@@ -293,7 +293,7 @@ ftUART_Init.argtypes = (c_void_p)
 ftUART_Init.restype = c_int
 
 ftUART_SetBaudRate = ftlib.FT260_UART_SetBaudRate
-ftUART_SetBaudRate.argtypes = (c_void_p, ULONG baudRate)
+ftUART_SetBaudRate.argtypes = (c_void_p, c_ulong)
 ftUART_SetBaudRate.restype = c_int
 
 ftUART_SetFlowControl = ftlib.FT260_UART_SetFlowControl
