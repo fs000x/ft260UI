@@ -313,7 +313,7 @@ ftUART_SetBreakOff.argtypes = (c_void_p)
 ftUART_SetBreakOff.restype = c_int
 
 ftUART_SetXonXoffChar = ftlib.FT260_UART_SetXonXoffChar
-ftUART_SetXonXoffChar.argtypes = (c_void_p, UCHAR Xon, UCHAR Xoff)
+ftUART_SetXonXoffChar.argtypes = (c_void_p, c_uchar, c_uchar)
 ftUART_SetXonXoffChar.restype = c_int
 
 ftUART_GetConfig = ftlib.FT260_UART_GetConfig
