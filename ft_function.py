@@ -209,7 +209,7 @@ ftSetClock.argtypes = (c_void_p, FT260_Clock_Rate clk)
 ftSetClock.restype = c_int
 
 ftSetWakeupInterrupt = ftlib.FT260_SetWakeupInterrupt
-ftSetWakeupInterrupt.argtypes = (c_void_p, BOOL enable)
+ftSetWakeupInterrupt.argtypes = (c_void_p, c_int)
 ftSetWakeupInterrupt.restype = c_int
 
 ftSetInterruptTriggerType = ftlib.FT260_SetInterruptTriggerType
@@ -252,7 +252,7 @@ ftGetLibVersion.restype = c_int
 
 
 ftEnableI2CPin = ftlib.FT260_EnableI2CPin
-ftEnableI2CPin.argtypes = (c_void_p, BOOL enable)
+ftEnableI2CPin.argtypes = (c_void_p, c_int)
 ftEnableI2CPin.restype = c_int
 
 ftSetUartToGPIOPin = ftlib.FT260_SetUartToGPIOPin
@@ -260,7 +260,7 @@ ftSetUartToGPIOPin.argtypes = (c_void_p)
 ftSetUartToGPIOPin.restype = c_int
 
 ftEnableDcdRiPin = ftlib.FT260_EnableDcdRiPin
-ftEnableDcdRiPin.argtypes = (c_void_p, BOOL enable)
+ftEnableDcdRiPin.argtypes = (c_void_p, c_int)
 ftEnableDcdRiPin.restype = c_int
 
 
@@ -342,7 +342,7 @@ ftUART_GetDcdRiStatus.argtypes = (c_void_p, uint8* value)
 ftUART_GetDcdRiStatus.restype = c_int
 
 ftUART_EnableRiWakeup = ftlib.FT260_UART_EnableRiWakeup
-ftUART_EnableRiWakeup.argtypes = (c_void_p, BOOL enable)
+ftUART_EnableRiWakeup.argtypes = (c_void_p, c_int)
 ftUART_EnableRiWakeup.restype = c_int
 
 ftUART_SetRiWakeupConfig = ftlib.FT260_UART_SetRiWakeupConfig
