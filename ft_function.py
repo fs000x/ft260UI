@@ -234,7 +234,7 @@ ftSetSuspendOutPolarity.restype = c_int
 
 
 ftSetParam_U8 = ftlib.FT260_SetParam_U8
-ftSetParam_U8.argtypes = (c_void_p, FT260_PARAM_1 param, uint8 value)
+ftSetParam_U8.argtypes = (c_void_p, FT260_PARAM_1 param, c_uint8)
 ftSetParam_U8.restype = c_int
 
 ftSetParam_U16 = ftlib.FT260_SetParam_U16
@@ -270,11 +270,11 @@ ftI2CMaster_Init.argtypes = (c_void_p, uint32 kbps)
 ftI2CMaster_Init.restype = c_int
 
 ftI2CMaster_Read = ftlib.FT260_I2CMaster_Read
-ftI2CMaster_Read.argtypes = (c_void_p, uint8 deviceAddress, FT260_I2C_FLAG flag, LPVOID lpBuffer, c_ulong, POINTER(c_ulong))
+ftI2CMaster_Read.argtypes = (c_void_p, c_uint8, FT260_I2C_FLAG flag, LPVOID lpBuffer, c_ulong, POINTER(c_ulong))
 ftI2CMaster_Read.restype = c_int
 
 ftI2CMaster_Write = ftlib.FT260_I2CMaster_Write
-ftI2CMaster_Write.argtypes = (c_void_p, uint8 deviceAddress, FT260_I2C_FLAG flag, LPVOID lpBuffer, c_ulong, POINTER(c_ulong))
+ftI2CMaster_Write.argtypes = (c_void_p, c_uint8, FT260_I2C_FLAG flag, LPVOID lpBuffer, c_ulong, POINTER(c_ulong))
 ftI2CMaster_Write.restype = c_int
 
 ftI2CMaster_GetStatus = ftlib.FT260_I2CMaster_GetStatus
