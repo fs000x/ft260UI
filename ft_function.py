@@ -375,7 +375,7 @@ ftGPIO_SetDir.argtypes = (c_void_p, c_ushort, BYTE dir)
 ftGPIO_SetDir.restype = c_int
 
 ftGPIO_Read = ftlib.FT260_GPIO_Read
-ftGPIO_Read.argtypes = (c_void_p, c_ushort, BYTE* pValue)
+ftGPIO_Read.argtypes = (c_void_p, c_ushort, c_uchar_p)
 ftGPIO_Read.restype = c_int
 
 ftGPIO_Write = ftlib.FT260_GPIO_Write
