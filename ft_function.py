@@ -352,11 +352,11 @@ ftUART_SetRiWakeupConfig.restype = c_int
 
 # Interrupt is transmitted by UART interface
 ftGetInterruptFlag = ftlib.FT260_GetInterruptFlag
-ftGetInterruptFlag.argtypes = (c_void_p, BOOL* pbFlag)
+ftGetInterruptFlag.argtypes = (c_void_p, c_int_p)
 ftGetInterruptFlag.restype = c_int
 
 ftCleanInterruptFlag = ftlib.FT260_CleanInterruptFlag
-ftCleanInterruptFlag.argtypes = (c_void_p, BOOL* pbFlag)
+ftCleanInterruptFlag.argtypes = (c_void_p, c_int_p)
 ftCleanInterruptFlag.restype = c_int
 
 
