@@ -130,7 +130,7 @@ class ftUartReadLoop:
                 buffer2Data = cast(buffer2, c_char_p)
                 logging.info("Read bytes : %d\r\n" % dwRealAccessData.value)
                 if dwAvailableData.value > 0:
-                    print("%s" % buffer2Data.value.decode("utf-8"), end='')
+                    print("%s" % buffer2Data.value.decode("ascii"), end='')
 
         time.sleep(0.1)
 
