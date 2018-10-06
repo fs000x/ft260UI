@@ -55,6 +55,10 @@ def openFtAsUart(Vid, Pid):
     else:
         logging.info("Uart TX_ACTIVE OK")
 
+    return handle
+
+
+def ftUartConfig(handle):
     # config UART
     ftUART_SetFlowControl(handle, FT260_UART_Mode.FT260_UART_XON_XOFF_MODE);
     ulBaudrate = c_ulong(9600)
@@ -69,7 +73,7 @@ def openFtAsUart(Vid, Pid):
     else:
         logging.info("config baud:%ld, ctrl:%d, data_bit:%d, stop_bit:%d, parity:%d, breaking:%d\r\n" % (
             uartConfig.baud_rate, uartConfig.flow_ctrl, uartConfig.data_bit, uartConfig.stop_bit, uartConfig.parity, uartConfig.breaking))
-    return handle
+
 
 
 def ftUartWrite(handle, data):
@@ -119,39 +123,45 @@ class ftUartReadLoop:
         time.sleep(0.1)
 
 
-logging.basicConfig(filename='ftUart.log', level=logging.INFO)
-if not findDeviceInPaths(FT260_Vid, FT260_Pid):
-    sg.Popup("No FT260 Device")
-    exit()
 
-uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
-if not uartHandle:
-    sg.Popup("open uartHandle error")
-    exit()
+def main():
+    logging.basicConfig(filename='ftUart.log', level=logging.INFO)
+    if not findDeviceInPaths(FT260_Vid, FT260_Pid):
+        sg.Popup("No FT260 Device")
+        exit()
 
-ftUartR = ftUartReadLoop(uartHandle)
-tr = Thread(target=ftUartR.run)
-tr.start()
+    uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
+    if not uartHandle:
+        sg.Popup("open uartHandle error")
+        exit()
 
-
-layout = [
-    [sg.Text('Uart output....', size=(40, 1))],
-    [sg.Output(size=(88, 20))],
-    [sg.Text('Uart Input', size=(15, 1)), sg.InputText(focus=True, key="send"), sg.ReadButton('Send', bind_return_key=True)]
-        ]
+    ftUartConfig(uartHandle)
+    ftUartR = ftUartReadLoop(uartHandle)
+    tr = Thread(target=ftUartR.run)
+    tr.start()
 
 
-window = sg.Window('FT260 UART').Layout(layout)
+    layout = [
+        [sg.Text('Uart output....', size=(40, 1))],
+        [sg.Output(size=(88, 20))],
+        [sg.Text('Uart Input', size=(15, 1)), sg.InputText(focus=True, key="send"), sg.ReadButton('Send', bind_return_key=True)]
+            ]
 
-# ---===--- Loop taking in user input and using it to call scripts --- #
-while True:
-  (button, value) = window.Read()
-  if button is None:
-      logging.info("Close Uart Handle")
-      ftUartR.stop()
-      ftClose(uartHandle)
-      #time.sleep(1)
-      tr.join()
-      break # exit button clicked
-  elif button == 'Send':
-      ftUartWrite(uartHandle, value["send"])
+
+    window = sg.Window('FT260 UART').Layout(layout)
+
+    # ---===--- Loop taking in user input and using it to call scripts --- #
+    while True:
+      (button, value) = window.Read()
+      if button is None:
+          logging.info("Close Uart Handle")
+          ftUartR.stop()
+          ftClose(uartHandle)
+          #time.sleep(1)
+          tr.join()
+          break # exit button clicked
+      elif button == 'Send':
+          ftUartWrite(uartHandle, value["send"])
+
+
+main()
