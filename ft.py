@@ -1,5 +1,7 @@
 from ft_function import *
-
+from threading import Thread
+import signal
+import time
 
 
 FT260_Vid = 0x0403
@@ -80,27 +82,32 @@ def openFtAsUart(Vid, Pid):
 
 def ftUartWrite(handle):
     # Write data
-    dwRealAccessData = c_ulong(0)
-    bufferData = c_char_p(b"abcdefghij")
-    buffer = cast(bufferData, c_void_p)
-    ftStatus = ftUART_Write(handle, buffer, 10, 5, byref(dwRealAccessData))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
-    else:
-        print("Write bytes : %d\r\n" % dwRealAccessData.value)
+    while True:
+        str = input("> ")
+        dwRealAccessData = c_ulong(0)
+        bufferData = c_char_p(bytes(str,'utf-8'))
+        buffer = cast(bufferData, c_void_p)
+        ftStatus = ftUART_Write(handle, buffer, len(str), len(str), byref(dwRealAccessData))
+        if not ftStatus == FT260_STATUS.FT260_OK.value:
+            print("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
+        else:
+            print("Write bytes : %d\r\n" % dwRealAccessData.value)
 
 
 
 def ftUartReadLoop(handle):
-    print("Prepare to read data. Press Enter to continue.\r\n")
+    #print("Prepare to read data. Press Enter to continue.\r\n")
 
-    while not input("getchar:") == 'c':
+    while True:
         # Read data
         dwRealAccessData = c_ulong(0)
         dwAvailableData = c_ulong(0)
         buffer2Data = c_char_p(b'\0'*200)
+        memset(buffer2Data, 0, 200)
         buffer2 = cast(buffer2Data, c_void_p)
         ftUART_GetQueueStatus(handle, byref(dwAvailableData))
+        if dwAvailableData.value == 0:
+            continue
         print("dwAvailableData : %d\r\n" % dwAvailableData.value)
 
         ftStatus = ftUART_Read(handle, buffer2, 50, dwAvailableData, byref(dwRealAccessData))
@@ -112,7 +119,9 @@ def ftUartReadLoop(handle):
             if dwAvailableData.value > 0:
                 print("buffer : %s\r\n" % buffer2Data.value)
 
+    time.sleep(1)
 
+    '''
     # Get UART DCD RI status
     value = c_uint8(0x00)
     ftEnableDcdRiPin(handle, 1);
@@ -126,6 +135,12 @@ def ftUartReadLoop(handle):
     ftSetWakeupInterrupt(handle, 0);
     ftUART_SetRiWakeupConfig(handle, FT260_RI_Wakeup_Type.FT260_RI_WAKEUP_RISING_EDGE);
     print("\r\nMake PC enter suspend, and then make RI Pin rise.\r\n");
+    '''
+
+def sigint_handler(sig, frame):
+    print("Close Uart Handle")
+    ftClose(uartHandle)
+    exit()
 
 
 
@@ -133,8 +148,18 @@ if not findDeviceInPaths(FT260_Vid, FT260_Vid):
     exit()
 
 uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
-ftUartWrite(uartHandle)
-ftUartReadLoop(uartHandle)
+print(uartHandle)
+if not uartHandle:
+    print("open uartHandle error")
+    exit()
 
-tmpstr = input("getchar:")
-ftClose(uartHandle)
+tw = Thread(target=ftUartWrite, args=(uartHandle,))
+tr = Thread(target=ftUartReadLoop, args=(uartHandle,))
+#ftUartWrite(uartHandle)
+#ftUartReadLoop(uartHandle)
+signal.signal(signal.SIGINT, sigint_handler)
+tw.start()
+tr.start()
+
+#tw.join()
+#tr.join()
