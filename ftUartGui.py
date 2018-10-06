@@ -95,13 +95,13 @@ class ftUartReadLoop:
         self._running = False
 
     def run(self):
+        dwRealAccessData = c_ulong(0)
+        dwAvailableData = c_ulong(0)
+        buffer2Data = c_char_p(b'\0'*200)
+        buffer2 = cast(buffer2Data, c_void_p)
         while self._running:
             # Read data
-            dwRealAccessData = c_ulong(0)
-            dwAvailableData = c_ulong(0)
-            buffer2Data = c_char_p(b'\0'*200)
             memset(buffer2Data, 0, 200)
-            buffer2 = cast(buffer2Data, c_void_p)
             ftUART_GetQueueStatus(self._handle, byref(dwAvailableData))
             if dwAvailableData.value == 0:
                 continue
@@ -114,12 +114,12 @@ class ftUartReadLoop:
                 buffer2Data = cast(buffer2, c_char_p)
                 logging.info("Read bytes : %d\r\n" % dwRealAccessData.value)
                 if dwAvailableData.value > 0:
-                    print("%s" % buffer2Data.value.decode("utf-8"))
+                    print("%s" % buffer2Data.value.decode("utf-8"), end='')
 
-        time.sleep(1)
+        time.sleep(0.1)
 
 
-
+logging.basicConfig(filename='ftUart.log', level=logging.INFO)
 if not findDeviceInPaths(FT260_Vid, FT260_Pid):
     sg.Popup("No FT260 Device")
     exit()
