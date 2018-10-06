@@ -5,11 +5,20 @@ import logging
 from ft_function import *
 from threading import Thread
 import time
+import signal
 
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
 
+uartConfigDef = {
+    'flowCtrl': FT260_UART_Mode.FT260_UART_XON_XOFF_MODE,
+    'baudRate': 9600,
+    'dataBit': FT260_Data_Bit.FT260_DATA_BIT_8,
+    'stopBit': FT260_Stop_Bit.FT260_STOP_BITS_1,
+    'parity': FT260_Parity.FT260_PARITY_NONE,
+    'breaking': False
+}
 
 def findDeviceInPaths(Vid, Pid):
     devNum = c_ulong(0)
@@ -60,11 +69,14 @@ def openFtAsUart(Vid, Pid):
 
 def ftUartConfig(handle):
     # config UART
-    ftUART_SetFlowControl(handle, FT260_UART_Mode.FT260_UART_XON_XOFF_MODE);
-    ulBaudrate = c_ulong(9600)
+    ftUART_SetFlowControl(handle, uartConfigDef['flowCtrl']);
+    ulBaudrate = c_ulong(uartConfigDef['baudRate'])
     ftUART_SetBaudRate(handle, ulBaudrate);
-    ftUART_SetDataCharacteristics(handle, FT260_Data_Bit.FT260_DATA_BIT_8, FT260_Stop_Bit.FT260_STOP_BITS_1, FT260_Parity.FT260_PARITY_NONE);
-    ftUART_SetBreakOff(handle);
+    ftUART_SetDataCharacteristics(handle, uartConfigDef['dataBit'], uartConfigDef['stopBit'], uartConfigDef['parity']);
+    if uartConfigDef['breaking']:
+        ftUart_SetBreakOn(handle)
+    else:
+        ftUART_SetBreakOff(handle)
 
     uartConfig = UartConfig()
     ftStatus = ftUART_GetConfig(handle, byref(uartConfig))
@@ -123,6 +135,13 @@ class ftUartReadLoop:
         time.sleep(0.1)
 
 
+is_sigInt_up = False
+
+def sigint_handler(sig, frame):
+    logging.info("SIGINT")
+    global is_sigInt_up
+    is_sigInt_up = True
+
 
 def main():
     logging.basicConfig(filename='ftUart.log', level=logging.INFO)
@@ -138,13 +157,21 @@ def main():
     ftUartConfig(uartHandle)
     ftUartR = ftUartReadLoop(uartHandle)
     tr = Thread(target=ftUartR.run)
+    signal.signal(signal.SIGINT, sigint_handler)
     tr.start()
 
+    cfgFrame_lay = [
+                [sg.Text('Flow Ctrl', size=(10, 1)), sg.InputCombo([i.name for i in FT260_UART_Mode], default_value = uartConfigDef['flowCtrl'].name, size=(30,1), key="flowCtrl")],
+                [sg.Text('Baud Rate', size=(10, 1)), sg.InputCombo([115200, 9600], default_value = uartConfigDef['baudRate'], size=(30,1), key="baudRate")],
+                [sg.Text('Data Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Data_Bit], default_value = uartConfigDef['dataBit'].name, size=(30,1), key="dataBit")],
+                [sg.Text('Parity', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Parity], default_value = uartConfigDef['parity'].name, size=(30,1), key="parity")],
+                [sg.Text('Stop Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Stop_Bit], default_value = uartConfigDef['stopBit'].name, size=(30,1), key="stopBit")],
+                [sg.Text('Breaking', size=(10, 1)), sg.Checkbox('', default = uartConfigDef['breaking'], size=(30,1), key="breaking")],
+                    ]
 
     layout = [
-        [sg.Text('Uart output....', size=(40, 1))],
-        [sg.Output(size=(88, 20))],
-        [sg.Text('Uart Input', size=(15, 1)), sg.InputText(focus=True, key="send"), sg.ReadButton('Send', bind_return_key=True)]
+        [sg.Output(size=(88, 20)), sg.Frame("Config", cfgFrame_lay)],
+        [sg.Text('Uart Input', size=(10, 1)), sg.InputText(focus=True, key="send"), sg.ReadButton('Send', bind_return_key=True)]
             ]
 
 
@@ -153,7 +180,8 @@ def main():
     # ---===--- Loop taking in user input and using it to call scripts --- #
     while True:
       (button, value) = window.Read()
-      if button is None:
+      global is_sigInt_up
+      if is_sigInt_up or button is None: # window.Read will block
           logging.info("Close Uart Handle")
           ftUartR.stop()
           ftClose(uartHandle)
