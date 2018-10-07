@@ -1,6 +1,6 @@
-# uart and i2c python3.7 Gui for [FT260](https://www.ftdichip.com/Products/ICs/FT260.html)
+# UART and I2C Python3.7 Gui for [FT260](https://www.ftdichip.com/Products/ICs/FT260.html)
 
-## run Gui
+## Run Gui
 
 * `pip install PySimpleGUI`
 * `python ftUartGui.py` to run ftUartGui
