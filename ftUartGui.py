@@ -1,5 +1,4 @@
 import PySimpleGUI as sg
-import subprocess
 import logging
 
 from ft_function import *
@@ -89,10 +88,10 @@ def ftUartConfig(handle, cfgDit=uartConfigDef):
 
 
 
-def ftUartWrite(handle, data):
+def ftUartWrite(handle, data=b''):
     # Write data
     dwRealAccessData = c_ulong(0)
-    bufferData = c_char_p(bytes(data,'utf-8'))
+    bufferData = c_char_p(data)
     buffer = cast(bufferData, c_void_p)
     ftStatus = ftUART_Write(handle, buffer, len(data), len(data), byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
@@ -131,7 +130,7 @@ class ftUartReadLoop:
                 buffer2Data = cast(buffer2, c_char_p)
                 logging.info("Read bytes : %d\r\n" % dwRealAccessData.value)
                 if dwAvailableData.value > 0:
-                    print("%s" % buffer2Data.value.decode("ascii"), end='')
+                    print("%s" % buffer2Data.value.decode('ascii'), end='')
 
         time.sleep(0.1)
 
@@ -196,7 +195,7 @@ def main():
             tr.join()
             break # exit button clicked
         elif button == 'Send':
-            ftUartWrite(uartHandle, value["send"])
+            ftUartWrite(uartHandle, bytes(value["send"][:-1], 'ascii'))
         elif button in [ i for i in uartConfigDef]:
             uartCfg = {
             'flowCtrl': FT260_UART_Mode[value['flowCtrl']],
