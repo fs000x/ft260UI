@@ -4,7 +4,9 @@
 
 * `pip install PySimpleGUI`
 * `python ftUartGui.py` to run ftUartGui
+  ![ftUartGui](img/ftUartGui.png)
 * `python ftI2cGui.py` to run ftI2cGui
+  ![ftI2cGui](img/ftI2cGui.png)
 
 ## Build Gui EXE file
 
