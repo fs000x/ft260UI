@@ -168,10 +168,15 @@ def main():
                 [sg.Text('Stop Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Stop_Bit], default_value = uartConfigDef['stopBit'].name, size=(30,1), key="stopBit")],
                 [sg.Text('Breaking', size=(10, 1)), sg.Checkbox('', default = uartConfigDef['breaking'], size=(30,1), key="breaking")],
                     ]
+    upFrame = [[sg.Output(size=(80, 30)), sg.Frame("Config", cfgFrame_lay, size=(50, 30))]]
+
+    send_lay = [[sg.Multiline(focus=True, size=(100, 5), enter_submits=False, key="send", do_not_clear=True), sg.ReadButton('Send', bind_return_key=True)]]
+    help_lay = [[sg.Text('Help')]]
+    downFrame = [[sg.TabGroup([[sg.Tab('Send', send_lay), sg.Tab('Help', help_lay)]])]]
 
     layout = [
-        [sg.Output(size=(88, 20)), sg.Frame("Config", cfgFrame_lay)],
-        [sg.Text('Uart Input', size=(10, 1)), sg.InputText(focus=True, key="send"), sg.ReadButton('Send', bind_return_key=True)]
+        [sg.Frame('', upFrame, size=(130, 30))],
+        [sg.Frame('', downFrame, size=(130, 5))]
             ]
 
 
