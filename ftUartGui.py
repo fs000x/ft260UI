@@ -19,6 +19,7 @@ uartConfigDef = {
     'parity': FT260_Parity.FT260_PARITY_NONE,
     'breaking': False
 }
+baudRateList = [1382400, 921600, 460800, 256000, 230400, 128000, 115200, 76800, 57600, 43000, 38400, 19200, 14400, 9600, 4800, 2400, 1200]
 
 def findDeviceInPaths(Vid, Pid):
     devNum = c_ulong(0)
@@ -67,14 +68,14 @@ def openFtAsUart(Vid, Pid):
     return handle
 
 
-def ftUartConfig(handle):
+def ftUartConfig(handle, cfgDit=uartConfigDef):
     # config UART
-    ftUART_SetFlowControl(handle, uartConfigDef['flowCtrl']);
-    ulBaudrate = c_ulong(uartConfigDef['baudRate'])
+    ftUART_SetFlowControl(handle, cfgDit['flowCtrl']);
+    ulBaudrate = c_ulong(cfgDit['baudRate'])
     ftUART_SetBaudRate(handle, ulBaudrate);
-    ftUART_SetDataCharacteristics(handle, uartConfigDef['dataBit'], uartConfigDef['stopBit'], uartConfigDef['parity']);
-    if uartConfigDef['breaking']:
-        ftUart_SetBreakOn(handle)
+    ftUART_SetDataCharacteristics(handle, cfgDit['dataBit'], cfgDit['stopBit'], cfgDit['parity']);
+    if cfgDit['breaking']:
+        ftUART_SetBreakOn(handle)
     else:
         ftUART_SetBreakOff(handle)
 
@@ -161,12 +162,12 @@ def main():
     tr.start()
 
     cfgFrame_lay = [
-                [sg.Text('Flow Ctrl', size=(10, 1)), sg.InputCombo([i.name for i in FT260_UART_Mode], default_value = uartConfigDef['flowCtrl'].name, size=(30,1), key="flowCtrl")],
-                [sg.Text('Baud Rate', size=(10, 1)), sg.InputCombo([115200, 9600], default_value = uartConfigDef['baudRate'], size=(30,1), key="baudRate")],
-                [sg.Text('Data Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Data_Bit], default_value = uartConfigDef['dataBit'].name, size=(30,1), key="dataBit")],
-                [sg.Text('Parity', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Parity], default_value = uartConfigDef['parity'].name, size=(30,1), key="parity")],
-                [sg.Text('Stop Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Stop_Bit], default_value = uartConfigDef['stopBit'].name, size=(30,1), key="stopBit")],
-                [sg.Text('Breaking', size=(10, 1)), sg.Checkbox('', default = uartConfigDef['breaking'], size=(30,1), key="breaking")],
+                [sg.Text('Flow Ctrl', size=(10, 1)), sg.InputCombo([i.name for i in FT260_UART_Mode], default_value = uartConfigDef['flowCtrl'].name, size=(30,1), key="flowCtrl", change_submits=True)],
+                [sg.Text('Baud Rate', size=(10, 1)), sg.InputCombo(baudRateList, default_value = uartConfigDef['baudRate'], size=(30,1), key="baudRate", change_submits=True)],
+                [sg.Text('Data Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Data_Bit], default_value = uartConfigDef['dataBit'].name, size=(30,1), key="dataBit", change_submits=True)],
+                [sg.Text('Parity', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Parity], default_value = uartConfigDef['parity'].name, size=(30,1), key="parity", change_submits=True)],
+                [sg.Text('Stop Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Stop_Bit], default_value = uartConfigDef['stopBit'].name, size=(30,1), key="stopBit", change_submits=True)],
+                [sg.Text('Breaking', size=(10, 1)), sg.Checkbox('', default = uartConfigDef['breaking'], size=(30,1), key="breaking", change_submits=True)],
                     ]
     upFrame = [[sg.Output(size=(80, 30)), sg.Frame("Config", cfgFrame_lay, size=(50, 30))]]
 
@@ -184,17 +185,29 @@ def main():
 
     # ---===--- Loop taking in user input and using it to call scripts --- #
     while True:
-      (button, value) = window.Read()
-      global is_sigInt_up
-      if is_sigInt_up or button is None: # window.Read will block
-          logging.info("Close Uart Handle")
-          ftUartR.stop()
-          ftClose(uartHandle)
-          #time.sleep(1)
-          tr.join()
-          break # exit button clicked
-      elif button == 'Send':
-          ftUartWrite(uartHandle, value["send"])
+        (button, value) = window.Read()
+        #sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
+        global is_sigInt_up
+        if is_sigInt_up or button is None: # window.Read will block
+            logging.info("Close Uart Handle")
+            ftUartR.stop()
+            ftClose(uartHandle)
+            #time.sleep(1)
+            tr.join()
+            break # exit button clicked
+        elif button == 'Send':
+            ftUartWrite(uartHandle, value["send"])
+        elif button in [ i for i in uartConfigDef]:
+            uartCfg = {
+            'flowCtrl': FT260_UART_Mode[value['flowCtrl']],
+            'baudRate': int(value['baudRate']),
+            'dataBit': FT260_Data_Bit[value['dataBit']],
+            'stopBit': FT260_Stop_Bit[value['stopBit']],
+            'parity': FT260_Parity[value['parity']],
+            'breaking': value['breaking']
+            }
+            ftUartConfig(uartHandle, cfgDit=uartCfg)
+
 
 
 main()
