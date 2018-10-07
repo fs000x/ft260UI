@@ -11,15 +11,11 @@ import signal
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
 
-uartConfigDef = {
-    'flowCtrl': FT260_UART_Mode.FT260_UART_XON_XOFF_MODE,
-    'baudRate': 9600,
-    'dataBit': FT260_Data_Bit.FT260_DATA_BIT_8,
-    'stopBit': FT260_Stop_Bit.FT260_STOP_BITS_1,
-    'parity': FT260_Parity.FT260_PARITY_NONE,
-    'breaking': False
+i2cCfgDef = {
+    'flag': FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+    'rate': 100
 }
-baudRateList = [1382400, 921600, 460800, 256000, 230400, 128000, 115200, 76800, 57600, 43000, 38400, 19200, 14400, 9600, 4800, 2400, 1200]
+i2cDevDef = 0x1E
 
 def findDeviceInPaths(Vid, Pid):
     devNum = c_ulong(0)
@@ -38,63 +34,57 @@ def findDeviceInPaths(Vid, Pid):
     return ret
 
 
-def openFtAsUart(Vid, Pid):
+def openFtAsI2c(Vid, Pid):
     ftStatus = c_int(0)
     handle = c_void_p()
 
     # mode 0 is I2C, mode 1 is UART
-    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
+    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 0, byref(handle))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         logging.warning("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
         logging.info("Open device OK")
 
-    ftStatus = ftUART_Init(handle)
+    ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.error("Uart Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        logging.error("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
-        logging.info("Uart Init OK")
-
-    # config TX_ACTIVE for UART 485
-    ftStatus = ftSelectGpioAFunction(handle, FT260_GPIOA_Pin.FT260_GPIOA_TX_ACTIVE)
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.warning("Uart TX_ACTIVE Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-        return 0
-    else:
-        logging.info("Uart TX_ACTIVE OK")
+        logging.info("I2c Init OK")
 
     return handle
 
 
-def ftUartConfig(handle, cfgDit=uartConfigDef):
-    # config UART
-    ftUART_SetFlowControl(handle, cfgDit['flowCtrl']);
-    ulBaudrate = c_ulong(cfgDit['baudRate'])
-    ftUART_SetBaudRate(handle, ulBaudrate);
-    ftUART_SetDataCharacteristics(handle, cfgDit['dataBit'], cfgDit['stopBit'], cfgDit['parity']);
-    if cfgDit['breaking']:
-        ftUART_SetBreakOn(handle)
-    else:
-        ftUART_SetBreakOff(handle)
-
-    uartConfig = UartConfig()
-    ftStatus = ftUART_GetConfig(handle, byref(uartConfig))
+def ftI2cConfig(handle, cfgRate=i2cCfgDef['rate']):
+    # config i2cRateDef
+    ftI2CMaster_Reset(handle)
+    ftStatus = ftI2CMaster_Init(handle, cfgRate)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.warning("UART Get config NG : %s\r\n" % FT260_STATUS(ftStatus))
+        logging.error("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        return 0
     else:
-        logging.info("config baud:%ld, ctrl:%d, data_bit:%d, stop_bit:%d, parity:%d, breaking:%d\r\n" % (
-            uartConfig.baud_rate, uartConfig.flow_ctrl, uartConfig.data_bit, uartConfig.stop_bit, uartConfig.parity, uartConfig.breaking))
+        logging.info("I2c Init OK")
 
 
-
-def ftUartWrite(handle, data):
+def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=''):
     # Write data
     dwRealAccessData = c_ulong(0)
-    bufferData = c_char_p(bytes(data,'utf-8'))
+    bufferData = c_char_p(bytes(data,'ascii'))
     buffer = cast(bufferData, c_void_p)
-    ftStatus = ftUART_Write(handle, buffer, len(data), len(data), byref(dwRealAccessData))
+    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        logging.warning("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
+    else:
+        logging.info("Write bytes : %d\r\n" % dwRealAccessData.value)
+
+
+def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=0):
+    # Read data
+    dwRealAccessData = c_ulong(0)
+    buffer2Data = c_char_p(b'\0'*200)
+    buffer2 = cast(buffer2Data, c_void_p)
+    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer2, readLen, byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         logging.warning("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
@@ -102,42 +92,8 @@ def ftUartWrite(handle, data):
 
 
 
-class ftUartReadLoop:
-
-    def __init__(self, handle):
-        self._handle = handle
-        self._running = True
-
-    def stop(self):
-        self._running = False
-
-    def run(self):
-        dwRealAccessData = c_ulong(0)
-        dwAvailableData = c_ulong(0)
-        buffer2Data = c_char_p(b'\0'*200)
-        buffer2 = cast(buffer2Data, c_void_p)
-        while self._running:
-            # Read data
-            memset(buffer2Data, 0, 200)
-            ftUART_GetQueueStatus(self._handle, byref(dwAvailableData))
-            if dwAvailableData.value == 0:
-                continue
-            logging.info("dwAvailableData : %d\r\n" % dwAvailableData.value)
-
-            ftStatus = ftUART_Read(self._handle, buffer2, 50, dwAvailableData, byref(dwRealAccessData))
-            if not ftStatus == FT260_STATUS.FT260_OK.value:
-                logging.info("UART Read NG : %s\r\n" % FT260_STATUS(ftStatus))
-            else:
-                buffer2Data = cast(buffer2, c_char_p)
-                logging.info("Read bytes : %d\r\n" % dwRealAccessData.value)
-                if dwAvailableData.value > 0:
-                    print("%s" % buffer2Data.value.decode("ascii"), end='')
-
-        time.sleep(0.1)
-
 
 is_sigInt_up = False
-
 def sigint_handler(sig, frame):
     logging.info("SIGINT")
     global is_sigInt_up
@@ -145,43 +101,50 @@ def sigint_handler(sig, frame):
 
 
 def main():
-    logging.basicConfig(filename='ftUart.log', level=logging.INFO)
+    logging.basicConfig(filename='ftI2c.log', level=logging.INFO)
     if not findDeviceInPaths(FT260_Vid, FT260_Pid):
         sg.Popup("No FT260 Device")
         exit()
 
-    uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
-    if not uartHandle:
-        sg.Popup("open uartHandle error")
+    i2cHandle = openFtAsI2c(FT260_Vid, FT260_Pid)
+    if not i2cHandle:
+        sg.Popup("open i2cHandle error")
         exit()
 
-    ftUartConfig(uartHandle)
-    ftUartR = ftUartReadLoop(uartHandle)
-    tr = Thread(target=ftUartR.run)
     signal.signal(signal.SIGINT, sigint_handler)
-    tr.start()
+
+    leftFrame = [[sg.Output(size=(30, 30))]]
 
     cfgFrame_lay = [
-                [sg.Text('Flow Ctrl', size=(10, 1)), sg.InputCombo([i.name for i in FT260_UART_Mode], default_value = uartConfigDef['flowCtrl'].name, size=(30,1), key="flowCtrl", change_submits=True)],
-                [sg.Text('Baud Rate', size=(10, 1)), sg.InputCombo(baudRateList, default_value = uartConfigDef['baudRate'], size=(30,1), key="baudRate", change_submits=True)],
-                [sg.Text('Data Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Data_Bit], default_value = uartConfigDef['dataBit'].name, size=(30,1), key="dataBit", change_submits=True)],
-                [sg.Text('Parity', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Parity], default_value = uartConfigDef['parity'].name, size=(30,1), key="parity", change_submits=True)],
-                [sg.Text('Stop Bits', size=(10, 1)), sg.InputCombo([i.name for i in FT260_Stop_Bit], default_value = uartConfigDef['stopBit'].name, size=(30,1), key="stopBit", change_submits=True)],
-                [sg.Text('Breaking', size=(10, 1)), sg.Checkbox('', default = uartConfigDef['breaking'], size=(30,1), key="breaking", change_submits=True)],
+                [sg.Text('I2C Flag', size=(10, 1)), sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value = i2cCfgDef['flag'].name, size=(30,1), key="flag")],
+                [sg.Text('Clock Rate', size=(10, 1)), sg.InputText(str(i2cCfgDef['rate']), size=(5,1), key="rate")],
                     ]
-    upFrame = [[sg.Output(size=(80, 30)), sg.Frame("Config", cfgFrame_lay, size=(50, 30))]]
 
-    send_lay = [[sg.Multiline(focus=True, size=(100, 5), enter_submits=False, key="send", do_not_clear=True), sg.ReadButton('Send', bind_return_key=True)]]
-    help_lay = [[sg.Text('Help')]]
-    downFrame = [[sg.TabGroup([[sg.Tab('Send', send_lay), sg.Tab('Help', help_lay)]])]]
+    rwReg_lay = [
+                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(size=(5,1), key="regDev", do_not_clear=True)],
+                [sg.Text('Reg Bits', size=(10, 1)),sg.InputCombo([8, 16], default_value = 8, size=(2,1), key="regBits")],
+                [sg.Text('Reg', size=(10, 1)),sg.InputText(size=(5,1), key="reg", do_not_clear=True)],
+                [sg.Text('Value Bits', size=(10, 1)),sg.InputCombo([8, 16, 32], default_value = 8, size=(2,1), key="valueBits")],
+                [sg.Text('Value', size=(5, 1)),sg.InputText(size=(12,1), key="regValue", do_not_clear=True)],
+                [sg.ReadButton('RegRead', size=(8,1)), sg.ReadButton('RegWrite', size=(8,1))]
+                ]
+    rwData_lay = [
+                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(size=(5,1), key="dataDev", do_not_clear=True)],
+                [sg.Text('R/W Len', size=(10, 1)),sg.InputText(size=(5,1), key="dataLen", do_not_clear=True)],
+                [sg.Text('Data', size=(5, 1)),sg.Multiline(size=(12,1), key="data", do_not_clear=True)],
+                [sg.ReadButton('DataRead', size=(8,1)), sg.ReadButton('DataWrite', size=(9,1))]
+                ]
+    rightFrame = [
+                [sg.Frame("Config", cfgFrame_lay, size=(50, 30))],
+                [sg.Frame("Read&Write Reg", rwReg_lay, size=(50, 30)), sg.Frame("Read&Write Data", rwData_lay)]
+                ]
 
     layout = [
-        [sg.Frame('', upFrame, size=(130, 30))],
-        [sg.Frame('', downFrame, size=(130, 5))]
+        [sg.Frame('Log', leftFrame, size=(30, 30)), sg.Frame('', rightFrame, size=(130, 5))]
             ]
 
 
-    window = sg.Window('FT260 UART').Layout(layout)
+    window = sg.Window('FT260 I2C').Layout(layout)
 
     # ---===--- Loop taking in user input and using it to call scripts --- #
     while True:
@@ -189,24 +152,13 @@ def main():
         #sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
         global is_sigInt_up
         if is_sigInt_up or button is None: # window.Read will block
-            logging.info("Close Uart Handle")
-            ftUartR.stop()
-            ftClose(uartHandle)
-            #time.sleep(1)
-            tr.join()
+            logging.info("Close i2c Handle")
+            ftClose(i2cHandle)
             break # exit button clicked
         elif button == 'Send':
-            ftUartWrite(uartHandle, value["send"])
-        elif button in [ i for i in uartConfigDef]:
-            uartCfg = {
-            'flowCtrl': FT260_UART_Mode[value['flowCtrl']],
-            'baudRate': int(value['baudRate']),
-            'dataBit': FT260_Data_Bit[value['dataBit']],
-            'stopBit': FT260_Stop_Bit[value['stopBit']],
-            'parity': FT260_Parity[value['parity']],
-            'breaking': value['breaking']
-            }
-            ftUartConfig(uartHandle, cfgDit=uartCfg)
+            ftI2cWrite(i2cHandle, int(value["dev"]), FT260_I2C_FLAG[value["flag"]], value["value"])
+        #elif button in [ i for i in i2cCfgDef]:
+        #    ftUartConfig(i2cHandle, cfgDit=uartCfg)
 
 
 
