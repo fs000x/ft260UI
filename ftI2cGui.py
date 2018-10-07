@@ -1,11 +1,10 @@
 import PySimpleGUI as sg
-import subprocess
 import logging
 
 from ft_function import *
-from threading import Thread
 import time
 import signal
+import struct
 
 
 FT260_Vid = 0x0403
@@ -67,10 +66,10 @@ def ftI2cConfig(handle, cfgRate=i2cCfgDef['rate']):
         logging.info("I2c Init OK")
 
 
-def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=''):
+def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
     # Write data
     dwRealAccessData = c_ulong(0)
-    bufferData = c_char_p(bytes(data,'ascii'))
+    bufferData = c_char_p(bytes(data))
     buffer = cast(bufferData, c_void_p)
     ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
@@ -79,16 +78,18 @@ def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=''):
         logging.info("Write bytes : %d\r\n" % dwRealAccessData.value)
 
 
-def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=0):
+def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
     # Read data
     dwRealAccessData = c_ulong(0)
-    buffer2Data = c_char_p(b'\0'*200)
+    buffer2Data = c_char_p(b'\0'*readLen)
     buffer2 = cast(buffer2Data, c_void_p)
     ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer2, readLen, byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         logging.warning("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
         logging.info("Write bytes : %d\r\n" % dwRealAccessData.value)
+
+    return buffer2Data.value
 
 
 
@@ -117,21 +118,21 @@ def main():
 
     cfgFrame_lay = [
                 [sg.Text('I2C Flag', size=(10, 1)), sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value = i2cCfgDef['flag'].name, size=(30,1), key="flag")],
-                [sg.Text('Clock Rate', size=(10, 1)), sg.InputText(str(i2cCfgDef['rate']), size=(5,1), key="rate")],
+                [sg.Text('Clock Rate', size=(10, 1)), sg.InputText(str(i2cCfgDef['rate']), size=(5,1), key="rate", do_not_clear=True)],
                     ]
 
     rwReg_lay = [
-                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(size=(5,1), key="regDev", do_not_clear=True)],
+                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(hex(i2cDevDef), size=(5,1), key="regDev", do_not_clear=True)],
                 [sg.Text('Reg Bits', size=(10, 1)),sg.InputCombo([8, 16], default_value = 8, size=(2,1), key="regBits")],
-                [sg.Text('Reg', size=(10, 1)),sg.InputText(size=(5,1), key="reg", do_not_clear=True)],
+                [sg.Text('Reg', size=(10, 1)),sg.InputText(hex(0), size=(5,1), key="reg", do_not_clear=True)],
                 [sg.Text('Value Bits', size=(10, 1)),sg.InputCombo([8, 16, 32], default_value = 8, size=(2,1), key="valueBits")],
-                [sg.Text('Value', size=(5, 1)),sg.InputText(size=(12,1), key="regValue", do_not_clear=True)],
+                [sg.Text('Value', size=(5, 1)),sg.InputText(hex(0), size=(12,1), key="regValue", do_not_clear=True)],
                 [sg.ReadButton('RegRead', size=(8,1)), sg.ReadButton('RegWrite', size=(8,1))]
                 ]
     rwData_lay = [
-                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(size=(5,1), key="dataDev", do_not_clear=True)],
-                [sg.Text('R/W Len', size=(10, 1)),sg.InputText(size=(5,1), key="dataLen", do_not_clear=True)],
-                [sg.Text('Data', size=(5, 1)),sg.Multiline(size=(12,1), key="data", do_not_clear=True)],
+                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(hex(i2cDevDef), size=(5,1), key="dataDev", do_not_clear=True)],
+                [sg.Text('R/W Len', size=(10, 1)),sg.InputText('1', size=(5,1), key="dataLen", do_not_clear=True)],
+                [sg.Text('Data', size=(5, 1)),sg.Multiline(hex(0), size=(12,1), key="data", do_not_clear=True)],
                 [sg.ReadButton('DataRead', size=(8,1)), sg.ReadButton('DataWrite', size=(9,1))]
                 ]
     rightFrame = [
@@ -155,10 +156,35 @@ def main():
             logging.info("Close i2c Handle")
             ftClose(i2cHandle)
             break # exit button clicked
-        elif button == 'Send':
-            ftI2cWrite(i2cHandle, int(value["dev"]), FT260_I2C_FLAG[value["flag"]], value["value"])
-        #elif button in [ i for i in i2cCfgDef]:
-        #    ftUartConfig(i2cHandle, cfgDit=uartCfg)
+        elif button == 'RegWrite':
+            packstr = ['>', 'B', 'B']
+            if int(value['regBits']) == 16:
+                packstr[1] = 'H'
+            if int(value['valueBits']) == 16:
+                packstr[2] = 'H'
+            elif int(value['valueBits']) == 32:
+                packstr[2] = 'I'
+            ftI2cWrite(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], struct.pack("".join(packstr), int(value['reg'],16), int(value['regValue'],16)))
+        elif button == 'RegRead':
+            packstr = ['>', 'B']
+            unpackstr = ['>', 'B']
+            readLen = 1
+            if int(value['regBits']) == 16:
+                packstr[1] = 'H'
+            if int(value['valueBits']) == 16:
+                readLen = 2
+                unpackstr[1] = 'H'
+            elif int(value['valueBits']) == 32:
+                readLen = 4
+                unpackstr[1] = 'I'
+            ftI2cWrite(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], struct.pack("".join(packstr), int(value['reg'],16)))
+            readData = ftI2cRead(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], readLen)
+            window.FindElement("regValue").Update("%#x" % struct.unpack("".join(unpackstr), readData))
+
+        elif button == 'DataRead':
+            sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
+        elif button == 'DataWrite':
+            sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
 
 
 
