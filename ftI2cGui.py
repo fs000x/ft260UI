@@ -1,8 +1,6 @@
 import PySimpleGUI as sg
-import logging
 
 from ft_function import *
-import time
 import signal
 import struct
 
@@ -26,9 +24,9 @@ def findDeviceInPaths(Vid, Pid):
     for i in range(devNum.value):
         ftGetDevicePath(pathBuf, 128, i)
         if pathBuf.value.find(sOpenDeviceName) > 0:
-            logging.info("find OpenDevice Name: %s\r\n" % pathBuf.value)
+            print("find OpenDevice Name: %s\r\n" % pathBuf.value)
             ret = True
-        logging.info("Index:%d\r\nPath:%s\r\n\r\n" %(i, pathBuf.value))
+        print("Index:%d\r\nPath:%s\r\n\r\n" %(i, pathBuf.value))
 
     return ret
 
@@ -40,17 +38,17 @@ def openFtAsI2c(Vid, Pid):
     # mode 0 is I2C, mode 1 is UART
     ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 0, byref(handle))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.warning("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
-        logging.info("Open device OK")
+        print("Open device OK")
 
     ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.error("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
-        logging.info("I2c Init OK")
+        print("I2c Init OK")
 
     return handle
 
@@ -60,10 +58,10 @@ def ftI2cConfig(handle, cfgRate=i2cCfgDef['rate']):
     ftI2CMaster_Reset(handle)
     ftStatus = ftI2CMaster_Init(handle, cfgRate)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.error("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
-        logging.info("I2c Init OK")
+        print("I2c Init OK")
 
 
 def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
@@ -73,9 +71,9 @@ def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
     buffer = cast(bufferData, c_void_p)
     ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.warning("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
+        print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
-        logging.info("Write bytes : %d\r\n" % dwRealAccessData.value)
+        print("Write bytes : %d\r\n" % dwRealAccessData.value)
 
 
 def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
@@ -85,9 +83,9 @@ def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
     buffer2 = cast(buffer2Data, c_void_p)
     ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer2, readLen, byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        logging.warning("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
+        print("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
-        logging.info("Write bytes : %d\r\n" % dwRealAccessData.value)
+        print("Write bytes : %d\r\n" % dwRealAccessData.value)
 
     return buffer2Data.value
 
@@ -96,13 +94,12 @@ def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
 
 is_sigInt_up = False
 def sigint_handler(sig, frame):
-    logging.info("SIGINT")
+    print("SIGINT")
     global is_sigInt_up
     is_sigInt_up = True
 
 
 def main():
-    logging.basicConfig(filename='ftI2c.log', level=logging.INFO)
     if not findDeviceInPaths(FT260_Vid, FT260_Pid):
         sg.Popup("No FT260 Device")
         exit()
@@ -153,7 +150,7 @@ def main():
         #sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
         global is_sigInt_up
         if is_sigInt_up or button is None: # window.Read will block
-            logging.info("Close i2c Handle")
+            print("Close i2c Handle")
             ftClose(i2cHandle)
             break # exit button clicked
         elif button == 'RegWrite':
