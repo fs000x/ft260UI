@@ -188,7 +188,18 @@ def main():
                 window.FindElement("regValue").Update("0x00")
 
         elif button == 'DataRead':
-            sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
+            updateStr = ""
+            readData = ftI2cRead(i2cHandle, int(value["dataDev"],16), FT260_I2C_FLAG[value["flag"]], int(value['dataLen']))
+            readLen = len(readData)
+            unpackstr = "<"+"B"*readLen
+            print(readLen, readData, unpackstr)
+            if readLen == 0:
+                updateStr = "0x00"
+            else:
+                for i in struct.unpack(unpackstr, readData):
+                    updateStr = updateStr + " " + hex(i)
+            window.FindElement("data").Update(updateStr)
+
         elif button == 'DataWrite':
             sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
 
