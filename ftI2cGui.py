@@ -79,13 +79,18 @@ def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
 def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
     # Read data
     dwRealAccessData = c_ulong(0)
+    bufferBytes = b'\0'*readLen
     buffer2Data = c_char_p(b'\0'*readLen)
+
     buffer2 = cast(buffer2Data, c_void_p)
     ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer2, readLen, byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
+        print("UART Read NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
-        print("Write bytes : %d\r\n" % dwRealAccessData.value)
+        bufferBytes = b'\0'
+        print("Read bytes : %d\r\n" % dwRealAccessData.value)
+        print(len(buffer2Data.value), buffer2Data, buffer2Data.value)
+        print(bufferBytes)
 
     return buffer2Data.value
 
@@ -176,7 +181,11 @@ def main():
                 unpackstr[1] = 'I'
             ftI2cWrite(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], struct.pack("".join(packstr), int(value['reg'],16)))
             readData = ftI2cRead(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], readLen)
-            window.FindElement("regValue").Update("%#x" % struct.unpack("".join(unpackstr), readData))
+            print(len(readData), readData, unpackstr)
+            if not len(readData) == 0:
+                window.FindElement("regValue").Update("%#x" % struct.unpack("".join(unpackstr), readData))
+            else:
+                window.FindElement("regValue").Update("0x00")
 
         elif button == 'DataRead':
             sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
