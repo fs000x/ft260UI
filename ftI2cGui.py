@@ -45,10 +45,19 @@ def openFtAsI2c(Vid, Pid):
 
     ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-        return 0
-    else:
-        print("I2c Init OK")
+        ftClose(handle)
+        ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
+        if not ftStatus == FT260_STATUS.FT260_OK.value:
+            print("ReOpen device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+            return 0
+        else:
+            print("ReOpen device OK")
+        ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
+        if not ftStatus == FT260_STATUS.FT260_OK.value:
+            print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+            return 0
+
+    print("I2c Init OK")
 
     return handle
 
