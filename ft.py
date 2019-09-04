@@ -9,13 +9,15 @@ FT260_Pid = 0x6030
 
 
 def findDeviceInPaths(Vid, Pid):
+    # Preparing paths list
     devNum = c_ulong(0)
     pathBuf = c_wchar_p('/0'*128)
     sOpenDeviceName = u"vid_{0:04x}&pid_{1:04x}&mi_00".format(Vid, Pid)
-    #print(sOpenDeviceName)
+    print("Searching for {} in paths".format(sOpenDeviceName))
     ret = False
-
     ftCreateDeviceList(byref(devNum))
+
+    # For each
     for i in range(devNum.value):
         ftGetDevicePath(pathBuf, 128, i)
         if pathBuf.value.find(sOpenDeviceName) > 0:
@@ -26,15 +28,15 @@ def findDeviceInPaths(Vid, Pid):
     return ret
 
 
-    '''
-    ftStatus = ftOpen(0, byref(handle))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("Open device Failed, status: %d\r\n" % FT260_STATUS(ftStatus))
-        return 0
-    else:
-        print("Open device OK")
-        print("Close status %s\r\n" % FT260_STATUS(ftClose(handle)))
-    '''
+'''
+ftStatus = ftOpen(0, byref(handle))
+if not ftStatus == FT260_STATUS.FT260_OK.value:
+    print("Open device Failed, status: %d\r\n" % FT260_STATUS(ftStatus))
+    return 0
+else:
+    print("Open device OK")
+    print("Close status %s\r\n" % FT260_STATUS(ftClose(handle)))
+'''
 def openFtAsUart(Vid, Pid):
     ftStatus = c_int(0)
     handle = c_void_p()
@@ -65,11 +67,11 @@ def openFtAsUart(Vid, Pid):
         print("Uart TX_ACTIVE OK")
 
     # config UART
-    ftUART_SetFlowControl(handle, FT260_UART_Mode.FT260_UART_XON_XOFF_MODE);
+    ftUART_SetFlowControl(handle, FT260_UART_Mode.FT260_UART_XON_XOFF_MODE)
     ulBaudrate = c_ulong(9600)
-    ftUART_SetBaudRate(handle, ulBaudrate);
-    ftUART_SetDataCharacteristics(handle, FT260_Data_Bit.FT260_DATA_BIT_8, FT260_Stop_Bit.FT260_STOP_BITS_1, FT260_Parity.FT260_PARITY_NONE);
-    ftUART_SetBreakOff(handle);
+    ftUART_SetBaudRate(handle, ulBaudrate)
+    ftUART_SetDataCharacteristics(handle, FT260_Data_Bit.FT260_DATA_BIT_8, FT260_Stop_Bit.FT260_STOP_BITS_1, FT260_Parity.FT260_PARITY_NONE)
+    ftUART_SetBreakOff(handle)
 
     uartConfig = UartConfig()
     ftStatus = ftUART_GetConfig(handle, byref(uartConfig))
