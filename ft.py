@@ -145,24 +145,19 @@ def sigint_handler(sig, frame):
     ftClose(uartHandle)
     exit()
 
-
-
-if not findDeviceInPaths(FT260_Vid, FT260_Pid):
-    exit()
-
-uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
-print(uartHandle)
-if not uartHandle:
-    print("open uartHandle error")
-    exit()
-
-tw = Thread(target=ftUartWrite, args=(uartHandle,))
-tr = Thread(target=ftUartReadLoop, args=(uartHandle,))
-#ftUartWrite(uartHandle)
-#ftUartReadLoop(uartHandle)
-signal.signal(signal.SIGINT, sigint_handler)
-tw.start()
-tr.start()
+# uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
+# print(uartHandle)
+# if not uartHandle:
+#     print("open uartHandle error")
+#     exit()
+#
+# tw = Thread(target=ftUartWrite, args=(uartHandle,))
+# tr = Thread(target=ftUartReadLoop, args=(uartHandle,))
+# #ftUartWrite(uartHandle)
+# #ftUartReadLoop(uartHandle)
+# signal.signal(signal.SIGINT, sigint_handler)
+# tw.start()
+# tr.start()
 
 #tw.join()
 #tr.join()
