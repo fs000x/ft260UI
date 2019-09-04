@@ -9,19 +9,27 @@ def findDeviceInPaths(Vid, Pid):
     # Preparing paths list
     devNum = c_ulong(0)
     pathBuf = c_wchar_p('/0'*128)
-    sOpenDeviceName = u"vid_{0:04x}&pid_{1:04x}&mi_00".format(Vid, Pid)
+    sOpenDeviceName = u"vid_{0:04x}&pid_{1:04x}".format(Vid, Pid)
     print("Searching for {} in paths".format(sOpenDeviceName))
     ret = False
     ftCreateDeviceList(byref(devNum))
 
-    # For each
+    # For each path check that search string is within and list them
+    valid_devices=list()
     for i in range(devNum.value):
         ftGetDevicePath(pathBuf, 128, i)
         if pathBuf.value.find(sOpenDeviceName) > 0:
-            print("find OpenDevice Name: %s\r\n" % pathBuf.value)
             ret = True
+            valid_devices.append(pathBuf.value)
         print("Index:%d\r\nPath:%s\r\n\r\n" % (i, pathBuf.value))
 
+    # For each valid device try to use the composite device (with &mi_00)
+    sOpenDeviceName += "&mi_00"
+    for i in range(len(valid_devices)):
+        if pathBuf.value.find(sOpenDeviceName) > 0:
+            print("Composite FT260 device found on path {}\r\n".format(valid_devices[i]))
+        else:
+            print("Not composite FT260 device found on path {}\r\n".format(valid_devices[i]))
     return ret
 
 
