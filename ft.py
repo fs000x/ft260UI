@@ -18,9 +18,10 @@ def findDeviceInPaths(Vid, Pid):
     ftCreateDeviceList(byref(devNum))
     for i in range(devNum.value):
         ftGetDevicePath(pathBuf, 128, i)
-        if pathBuf.value.find(sOpenDeviceName):
+        if pathBuf.value.find(sOpenDeviceName) > 0:
+            print("find OpenDevice Name: %s\r\n" % pathBuf.value)
             ret = True
-        print("Index:%d\r\nPath:%s\r\n\r\n" %(i, pathBuf.value))
+        print("Index:%d\r\nPath:%s\r\n\r\n" % (i, pathBuf.value))
 
     return ret
 

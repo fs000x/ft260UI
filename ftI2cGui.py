@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 
 from ft_function import *
+from ft import findDeviceInPaths
 import signal
 import struct
 
@@ -13,23 +14,6 @@ i2cCfgDef = {
     'rate': 100
 }
 i2cDevDef = 0x1E
-
-def findDeviceInPaths(Vid, Pid):
-    devNum = c_ulong(0)
-    pathBuf = c_wchar_p('/0'*128)
-    sOpenDeviceName = u"vid_{0:04x}&pid_{1:04x}&mi_00".format(Vid, Pid)
-    ret = False
-
-    ftCreateDeviceList(byref(devNum))
-    for i in range(devNum.value):
-        ftGetDevicePath(pathBuf, 128, i)
-        if pathBuf.value.find(sOpenDeviceName) > 0:
-            print("find OpenDevice Name: %s\r\n" % pathBuf.value)
-            ret = True
-        print("Index:%d\r\nPath:%s\r\n\r\n" %(i, pathBuf.value))
-
-    return ret
-
 
 def openFtAsI2c(Vid, Pid):
     ftStatus = c_int(0)
