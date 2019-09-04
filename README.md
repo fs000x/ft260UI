@@ -1,7 +1,8 @@
 # UART and I2C Python3.7 Gui for [FT260](https://www.ftdichip.com/Products/ICs/FT260.html)
 
-Python32 is required since FTDI provides only 32bit FT260 library binaries
-Windows only since FTDI provides only windows library binaries
+Python32 is required since FTDI provides only 32bit FT260 library binaries.
+
+Windows only since FTDI provides only windows library binaries.
 
 ## Run Gui
 
