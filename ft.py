@@ -1,8 +1,5 @@
 from ft_function import *
-from threading import Thread
-import signal
 import time
-
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
@@ -123,41 +120,3 @@ def ftUartReadLoop(handle):
                 print("buffer : %s\r\n" % buffer2Data.value.decode("utf-8"))
 
     time.sleep(1)
-
-    '''
-    # Get UART DCD RI status
-    value = c_uint8(0x00)
-    ftEnableDcdRiPin(handle, 1);
-    ftUART_GetDcdRiStatus(handle, byref(value))
-    print("\r\nStatus DCD:%d, RI:%d\r\n" % (1 if (value.value&BIT0) else 0, 1 if (value.value&BIT1) else 0))
-
-
-    # Set UART RI Wakeup - Rising edge
-    ftEnableDcdRiPin(handle, 1);
-    ftUART_EnableRiWakeup(handle, 1);
-    ftSetWakeupInterrupt(handle, 0);
-    ftUART_SetRiWakeupConfig(handle, FT260_RI_Wakeup_Type.FT260_RI_WAKEUP_RISING_EDGE);
-    print("\r\nMake PC enter suspend, and then make RI Pin rise.\r\n");
-    '''
-
-def sigint_handler(sig, frame):
-    print("Close Uart Handle")
-    ftClose(uartHandle)
-    exit()
-
-# uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
-# print(uartHandle)
-# if not uartHandle:
-#     print("open uartHandle error")
-#     exit()
-#
-# tw = Thread(target=ftUartWrite, args=(uartHandle,))
-# tr = Thread(target=ftUartReadLoop, args=(uartHandle,))
-# #ftUartWrite(uartHandle)
-# #ftUartReadLoop(uartHandle)
-# signal.signal(signal.SIGINT, sigint_handler)
-# tw.start()
-# tr.start()
-
-#tw.join()
-#tr.join()
