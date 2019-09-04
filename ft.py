@@ -147,7 +147,7 @@ def sigint_handler(sig, frame):
 
 
 
-if not findDeviceInPaths(FT260_Vid, FT260_Vid):
+if not findDeviceInPaths(FT260_Vid, FT260_Pid):
     exit()
 
 uartHandle = openFtAsUart(FT260_Vid, FT260_Pid)
