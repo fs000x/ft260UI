@@ -5,6 +5,16 @@ from ft import findDeviceInPaths
 import signal
 import struct
 
+# Tkinter GUI import
+try:
+    import Tkinter
+    import ttk
+except ImportError:  # Python 3
+    import tkinter as Tkinter
+    import tkinter.ttk as ttk
+
+import threading
+import queue
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
@@ -14,6 +24,7 @@ i2cCfgDef = {
     'rate': 100
 }
 i2cDevDef = 0x1E
+
 
 def openFtAsI2c(Vid, Pid):
     ftStatus = c_int(0)
@@ -72,30 +83,71 @@ def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
 def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
     # Read data
     dwRealAccessData = c_ulong(0)
-    bufferBytes = b'\0'*readLen
-    buffer2Data = c_char_p(b'\0'*readLen)
+    buffer2Data = c_char_p(b'\0' * readLen)
 
     buffer2 = cast(buffer2Data, c_void_p)
     ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer2, readLen, byref(dwRealAccessData))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("UART Read NG : %s\r\n" % FT260_STATUS(ftStatus))
-    else:
-        bufferBytes = b'\0'
-        print("Read bytes : %d\r\n" % dwRealAccessData.value)
-        print(len(buffer2Data.value), buffer2Data, buffer2Data.value)
-        print(bufferBytes)
 
-    return buffer2Data.value
-
-
+    return (ftStatus, dwRealAccessData, buffer2Data.value)
 
 
 is_sigInt_up = False
+
+
 def sigint_handler(sig, frame):
     print("SIGINT")
     global is_sigInt_up
     is_sigInt_up = True
 
+
+class CommLog(Tkinter.Frame):
+    '''
+    Communication log for USB-I2C messages
+    '''
+
+    def __init__(self, q: queue):
+        '''
+        Constructor
+        '''
+        self.parent = Tkinter.Tk()
+        self.q = q
+        Tkinter.Frame.__init__(self, self.parent)
+
+        # Communication log settings
+        self.parent.title("Communication log")
+        self.parent.grid_rowconfigure(0, weight=1)
+        self.parent.grid_columnconfigure(0, weight=1)
+        self.parent.config(background="lavender")
+
+        # Set the treeview
+        self.tree = ttk.Treeview(self.parent, columns=('Direction', 'Message'))
+        self.tree.heading('#0', text='#')
+        self.tree.heading('#1', text='Direction')
+        self.tree.heading('#2', text='Message')
+        self.tree.column('#1', stretch=Tkinter.YES)
+        self.tree.column('#2', stretch=Tkinter.YES)
+        self.tree.column('#0', stretch=Tkinter.YES)
+        self.tree.grid(row=0, columnspan=4, sticky='nsew')
+
+        # Initialize the counter
+        self.message_number = 0
+
+    def run(self):
+        self.parent.after(100,self.check_messages_and_show)
+        self.parent.mainloop()
+
+    def check_messages_and_show(self):
+        """
+        Check for messages in queue and add them all to treeview if there are any
+        """
+        while not self.q.empty():
+            self.tree.insert('', 'end', text=str(self.message_number), values=self.q.get())
+            self.message_number += 1
+        self.parent.after(100, self.check_messages_and_show)
+
+def run_log(q):
+    comm_log = CommLog(q)
+    comm_log.run()
 
 def main():
     if not findDeviceInPaths(FT260_Vid, FT260_Pid):
@@ -112,45 +164,53 @@ def main():
     leftFrame = [[sg.Output(size=(30, 30))]]
 
     cfgFrame_lay = [
-                [sg.Text('I2C Flag', size=(10, 1)), sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value = i2cCfgDef['flag'].name, size=(30,1), key="flag")],
-                [sg.Text('Clock Rate', size=(10, 1)), sg.InputText(str(i2cCfgDef['rate']), size=(5,1), key="rate", do_not_clear=True)],
-                    ]
+        [sg.Text('I2C Flag', size=(10, 1)),
+         sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value=i2cCfgDef['flag'].name, size=(30, 1),
+                       key="flag")],
+        [sg.Text('Clock Rate', size=(10, 1)),
+         sg.InputText(str(i2cCfgDef['rate']), size=(5, 1), key="rate", do_not_clear=True)],
+    ]
 
     rwReg_lay = [
-                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(hex(i2cDevDef), size=(5,1), key="regDev", do_not_clear=True)],
-                [sg.Text('Reg Bits', size=(10, 1)),sg.InputCombo([8, 16], default_value = 8, size=(2,1), key="regBits")],
-                [sg.Text('Reg', size=(10, 1)),sg.InputText(hex(0), size=(5,1), key="reg", do_not_clear=True)],
-                [sg.Text('Value Bits', size=(10, 1)),sg.InputCombo([8, 16, 32], default_value = 8, size=(2,1), key="valueBits")],
-                [sg.Text('Value', size=(5, 1)),sg.InputText(hex(0), size=(12,1), key="regValue", do_not_clear=True)],
-                [sg.ReadButton('RegRead', size=(8,1)), sg.ReadButton('RegWrite', size=(8,1))]
-                ]
+        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(i2cDevDef), size=(5, 1), key="regDev", do_not_clear=True)],
+        [sg.Text('Reg Bits', size=(10, 1)), sg.InputCombo([8, 16], default_value=8, size=(2, 1), key="regBits")],
+        [sg.Text('Reg', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="reg", do_not_clear=True)],
+        [sg.Text('Value Bits', size=(10, 1)),
+         sg.InputCombo([8, 16, 32], default_value=8, size=(2, 1), key="valueBits")],
+        [sg.Text('Value', size=(5, 1)), sg.InputText(hex(0), size=(12, 1), key="regValue", do_not_clear=True)],
+        [sg.ReadButton('RegRead', size=(8, 1)), sg.ReadButton('RegWrite', size=(8, 1))]
+    ]
     rwData_lay = [
-                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(hex(i2cDevDef), size=(5,1), key="dataDev", do_not_clear=True)],
-                [sg.Text('R/W Len', size=(10, 1)),sg.InputText('1', size=(5,1), key="dataLen", do_not_clear=True)],
-                [sg.Text('Data', size=(5, 1)),sg.Multiline(hex(0), size=(12,1), key="data", do_not_clear=True)],
-                [sg.ReadButton('DataRead', size=(8,1)), sg.ReadButton('DataWrite', size=(9,1))]
-                ]
+        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(i2cDevDef), size=(5, 1), key="dataDev", do_not_clear=True)],
+        [sg.Text('R/W Len', size=(10, 1)), sg.InputText('1', size=(5, 1), key="dataLen", do_not_clear=True)],
+        [sg.Text('Data', size=(5, 1)), sg.Multiline(hex(0), size=(12, 1), key="data", do_not_clear=True)],
+        [sg.ReadButton('DataRead', size=(8, 1)), sg.ReadButton('DataWrite', size=(9, 1))]
+    ]
     rightFrame = [
-                [sg.Frame("Config", cfgFrame_lay, size=(50, 30))],
-                [sg.Frame("Read&Write Reg", rwReg_lay, size=(50, 30)), sg.Frame("Read&Write Data", rwData_lay)]
-                ]
+        [sg.Frame("Config", cfgFrame_lay, size=(50, 30))],
+        [sg.Frame("Read&Write Reg", rwReg_lay, size=(50, 30)), sg.Frame("Read&Write Data", rwData_lay)]
+    ]
 
     layout = [
         [sg.Frame('Log', leftFrame, size=(30, 30)), sg.Frame('', rightFrame, size=(130, 5))]
-            ]
-
+    ]
 
     window = sg.Window('FT260 I2C').Layout(layout)
+
+    q = queue.Queue()
+    thread_comm_log = threading.Thread(target=run_log, daemon=True, args=[q,])
+    thread_comm_log.start()
+    #thread_comm_log.join()
 
     # ---===--- Loop taking in user input and using it to call scripts --- #
     while True:
         (button, value) = window.Read()
-        #sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
+        # sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
         global is_sigInt_up
-        if is_sigInt_up or button is None: # window.Read will block
+        if is_sigInt_up or button is None:  # window.Read will block
             print("Close i2c Handle")
             ftClose(i2cHandle)
-            break # exit button clicked
+            break  # exit button clicked
         elif button == 'RegWrite':
             packstr = ['>', 'B', 'B']
             if int(value['regBits']) == 16:
@@ -159,7 +219,8 @@ def main():
                 packstr[2] = 'H'
             elif int(value['valueBits']) == 32:
                 packstr[2] = 'I'
-            ftI2cWrite(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], struct.pack("".join(packstr), int(value['reg'],16), int(value['regValue'],16)))
+            ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
+                       struct.pack("".join(packstr), int(value['reg'], 16), int(value['regValue'], 16)))
         elif button == 'RegRead':
             packstr = ['>', 'B']
             unpackstr = ['>', 'B']
@@ -172,8 +233,9 @@ def main():
             elif int(value['valueBits']) == 32:
                 readLen = 4
                 unpackstr[1] = 'I'
-            ftI2cWrite(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], struct.pack("".join(packstr), int(value['reg'],16)))
-            readData = ftI2cRead(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], readLen)
+            ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
+                       struct.pack("".join(packstr), int(value['reg'], 16)))
+            (status, data_real_read_len, readData) = ftI2cRead(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]], readLen)
             print(len(readData), readData, unpackstr)
             if not len(readData) == 0:
                 window.FindElement("regValue").Update("%#x" % struct.unpack("".join(unpackstr), readData))
@@ -182,20 +244,35 @@ def main():
 
         elif button == 'DataRead':
             updateStr = ""
-            readData = ftI2cRead(i2cHandle, int(value["dataDev"],16), FT260_I2C_FLAG[value["flag"]], int(value['dataLen']))
-            readLen = len(readData)
-            unpackstr = "<"+"B"*readLen
+            (status, data_real_read_len, readData) = ftI2cRead(i2cHandle, int(value["dataDev"], 16), FT260_I2C_FLAG[value["flag"]],
+                                 int(value['dataLen']))
+            if data_real_read_len != len(readData):
+                t = len(readData)
+                print(t)
+                raise Exception()
+
+            if not status == FT260_STATUS.FT260_OK.value:
+                print("UART Read NG : %s\r\n" % FT260_STATUS(status))
+            else:
+                print("Read bytes : %d\r\n" % data_real_read_len.value)
+                print(len(readData.value), readData, readData.value)
+
+            unpackstr = "<" + "B" * readLen
             print(readLen, readData, unpackstr)
             if readLen == 0:
                 updateStr = "0x00"
             else:
                 for i in struct.unpack(unpackstr, readData):
                     updateStr = updateStr + " " + hex(i)
+                    if not q.full():
+                        q.put(('Read', hex(i)))
             window.FindElement("data").Update(updateStr)
 
         elif button == 'DataWrite':
+            if not q.full():
+                q.put(('From mainloop', 'Hello'))
             sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
 
 
-
-main()
+if __name__ == "__main__":
+    main()
