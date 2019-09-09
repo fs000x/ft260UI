@@ -13,7 +13,7 @@ except ImportError:  # Python 3
     import tkinter as Tkinter
     import tkinter.ttk as ttk
 
-import threading
+import multiprocessing
 import queue
 
 FT260_Vid = 0x0403
@@ -140,10 +140,14 @@ class CommLog(Tkinter.Frame):
         """
         Check for messages in queue and add them all to treeview if there are any
         """
-        while not self.q.empty():
-            self.tree.insert('', 'end', text=str(self.message_number), values=self.q.get())
-            self.message_number += 1
         self.parent.after(100, self.check_messages_and_show)
+        while not self.q.empty():
+            next_in_queue = self.q.get()
+            if next_in_queue is None:
+                self.parent.quit()
+                break
+            self.tree.insert('', 'end', text=str(self.message_number), values=next_in_queue)
+            self.message_number += 1
 
 def run_log(q):
     comm_log = CommLog(q)
@@ -197,10 +201,9 @@ def main():
 
     window = sg.Window('FT260 I2C').Layout(layout)
 
-    q = queue.Queue()
-    thread_comm_log = threading.Thread(target=run_log, daemon=True, args=[q,])
-    thread_comm_log.start()
-    #thread_comm_log.join()
+    q = multiprocessing.Queue()
+    process_comm_log = multiprocessing.Process(target=run_log, args=[q,])
+    process_comm_log.start()
 
     # ---===--- Loop taking in user input and using it to call scripts --- #
     while True:
@@ -272,7 +275,7 @@ def main():
             if not q.full():
                 q.put(('From mainloop', 'Hello'))
             sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
-
+    q.put(None)
 
 if __name__ == "__main__":
     main()
