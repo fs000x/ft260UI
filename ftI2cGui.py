@@ -4,6 +4,7 @@ from ft_function import *
 from ft import findDeviceInPaths
 import signal
 import struct
+import time
 
 # Tkinter GUI import
 try:
@@ -82,13 +83,13 @@ def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
 
 def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
     # Read data
-    dwRealAccessData = c_ulong(0)
-    buffer2Data = c_char_p(b'\0' * readLen)
+    dwRealAccessData = c_ulong(0) # Create variable to store received bytes
+    buffer = create_string_buffer(readLen + 1) # Create buffer to hold received data as string
+    buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
 
-    buffer2 = cast(buffer2Data, c_void_p)
-    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer2, readLen, byref(dwRealAccessData))
+    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
 
-    return (ftStatus, dwRealAccessData, buffer2Data.value)
+    return ftStatus, dwRealAccessData.value, buffer.value
 
 
 is_sigInt_up = False
@@ -120,14 +121,18 @@ class CommLog(Tkinter.Frame):
         self.parent.config(background="lavender")
 
         # Set the treeview
-        self.tree = ttk.Treeview(self.parent, columns=('Direction', 'Message'))
+        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message'))
         self.tree.heading('#0', text='#')
-        self.tree.heading('#1', text='Direction')
-        self.tree.heading('#2', text='Message')
-        self.tree.column('#1', stretch=Tkinter.YES)
-        self.tree.column('#2', stretch=Tkinter.YES)
-        self.tree.column('#0', stretch=Tkinter.YES)
-        self.tree.grid(row=0, columnspan=4, sticky='nsew')
+        self.tree.heading('#1', text='Timestamp')
+        self.tree.heading('#2', text='Direction')
+        self.tree.heading('#3', text='Address')
+        self.tree.heading('#4', text='Message')
+        self.tree.column('#0', minwidth=50, width=50, stretch=Tkinter.YES)
+        self.tree.column('#1', minwidth=150, width=150, stretch=Tkinter.YES)
+        self.tree.column('#2', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.column('#4', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.grid(row=0, columnspan=4, sticky='nsew', )
 
         # Initialize the counter
         self.message_number = 0
@@ -146,7 +151,10 @@ class CommLog(Tkinter.Frame):
             if next_in_queue is None:
                 self.parent.quit()
                 break
-            self.tree.insert('', 'end', text=str(self.message_number), values=next_in_queue)
+            v=list()
+            v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+            v.extend(next_in_queue)
+            self.tree.insert('', 'end', text=str(self.message_number), values=v)
             self.message_number += 1
 
 def run_log(q):
@@ -249,26 +257,18 @@ def main():
             updateStr = ""
             (status, data_real_read_len, readData) = ftI2cRead(i2cHandle, int(value["dataDev"], 16), FT260_I2C_FLAG[value["flag"]],
                                  int(value['dataLen']))
+
+            # Error checking
             if data_real_read_len != len(readData):
-                t = len(readData)
-                print(t)
-                raise Exception()
+                print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len, len(readData)))
+            elif not status == FT260_STATUS.FT260_OK.value:
+                print("Read error : %s\r\n" % status)
 
-            if not status == FT260_STATUS.FT260_OK.value:
-                print("UART Read NG : %s\r\n" % FT260_STATUS(status))
-            else:
-                print("Read bytes : %d\r\n" % data_real_read_len.value)
-                print(len(readData.value), readData, readData.value)
-
-            unpackstr = "<" + "B" * readLen
-            print(readLen, readData, unpackstr)
-            if readLen == 0:
-                updateStr = "0x00"
-            else:
-                for i in struct.unpack(unpackstr, readData):
-                    updateStr = updateStr + " " + hex(i)
-                    if not q.full():
-                        q.put(('Read', hex(i)))
+            unpackstr = "<" + "B" * len(readData)
+            for i in struct.unpack(unpackstr, readData):
+                updateStr = updateStr + " " + hex(i)
+                if not q.full():
+                    q.put(['Read', value["dataDev"], hex(i)])
             window.FindElement("data").Update(updateStr)
 
         elif button == 'DataWrite':
