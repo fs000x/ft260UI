@@ -194,7 +194,7 @@ def main():
     ]
     rwData_lay = [
         [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(i2cDevDef), size=(5, 1), key="dataDev", do_not_clear=True)],
-        [sg.Text('R/W Len', size=(10, 1)), sg.InputText('1', size=(5, 1), key="dataLen", do_not_clear=True)],
+        [sg.Text('Read length', size=(10, 1)), sg.InputText('1', size=(5, 1), key="dataLen", do_not_clear=True)],
         [sg.Text('Data', size=(5, 1)), sg.Multiline(hex(0), size=(12, 1), key="data", do_not_clear=True)],
         [sg.ReadButton('DataRead', size=(8, 1)), sg.ReadButton('DataWrite', size=(9, 1))]
     ]
@@ -272,10 +272,38 @@ def main():
             window.FindElement("data").Update(updateStr)
 
         elif button == 'DataWrite':
+            updateStr = ""
+            data_to_write = value["data"].split(' ')
+            packstr = ['>']
+            for i in range(0, len(data_to_write)):
+                packstr.append('B')
+
+            (status, data_real_read_len, readData) = ftI2cWrite(i2cHandle,
+                                                                int(value["dataDev"], 16),
+                                                                FT260_I2C_FLAG[value["flag"]],
+                                                                struct.pack("".join(packstr), int(value['reg'], 16),
+                                                                            int(value['regValue'], 16))
+                       #struct.pack("".join(packstr), int(value['reg'], 16), int(value['regValue'], 16))
+                                                                )
+
+            # Error checking
+            if data_real_read_len != len(readData):
+                print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
+                                                                                        len(readData)))
+            elif not status == FT260_STATUS.FT260_OK.value:
+                print("Read error : %s\r\n" % status)
+
+            unpackstr = "<" + "B" * len(readData)
+            for i in struct.unpack(unpackstr, readData):
+                updateStr = updateStr + " " + hex(i)
+                if not q.full():
+                    q.put(['Read', value["dataDev"], hex(i)])
+            window.FindElement("data").Update(updateStr)
             if not q.full():
                 q.put(('From mainloop', 'Hello'))
             sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
     q.put(None)
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     main()
