@@ -2,7 +2,7 @@
 
 Python32 is required since FTDI provides only 32bit FT260 library binaries.
 
-Windows only since FTDI provides only windows library binaries.
+Windows only, since FTDI provides only windows library binaries.
 
 ## Run Gui
 

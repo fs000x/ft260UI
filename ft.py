@@ -33,15 +33,71 @@ def findDeviceInPaths(Vid, Pid):
     return ret
 
 
-'''
-ftStatus = ftOpen(0, byref(handle))
-if not ftStatus == FT260_STATUS.FT260_OK.value:
-    print("Open device Failed, status: %d\r\n" % FT260_STATUS(ftStatus))
-    return 0
-else:
-    print("Open device OK")
-    print("Close status %s\r\n" % FT260_STATUS(ftClose(handle)))
-'''
+def openFtAsI2c(Vid, Pid):
+    ftStatus = c_int(0)
+    handle = c_void_p()
+
+    # mode 0 is I2C, mode 1 is UART
+    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 0, byref(handle))
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        return 0
+    else:
+        print("Open device OK")
+
+    ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        ftClose(handle)
+        ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
+        if not ftStatus == FT260_STATUS.FT260_OK.value:
+            print("ReOpen device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+            return 0
+        else:
+            print("ReOpen device OK")
+        ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
+        if not ftStatus == FT260_STATUS.FT260_OK.value:
+            print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+            return 0
+
+    print("I2c Init OK")
+
+    return handle
+
+
+def ftI2cConfig(handle, cfgRate):
+    # config i2cRateDef
+    ftI2CMaster_Reset(handle)
+    ftStatus = ftI2CMaster_Init(handle, cfgRate)
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        return 0
+    else:
+        print("I2c Init OK")
+
+
+def ftI2cWrite(handle, i2cDev, flag, data=b''):
+    # Write data
+    dwRealAccessData = c_ulong(0)
+    bufferData = c_char_p(bytes(data))
+    buffer = cast(bufferData, c_void_p)
+    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
+    else:
+        print("Write bytes : %d\r\n" % dwRealAccessData.value)
+
+
+def ftI2cRead(handle, i2cDev, flag, readLen=1):
+    # Read data
+    dwRealAccessData = c_ulong(0) # Create variable to store received bytes
+    buffer = create_string_buffer(readLen + 1) # Create buffer to hold received data as string
+    buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
+
+    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
+
+    return ftStatus, dwRealAccessData.value, buffer.value
+
+
 def openFtAsUart(Vid, Pid):
     ftStatus = c_int(0)
     handle = c_void_p()
@@ -53,8 +109,6 @@ def openFtAsUart(Vid, Pid):
         return 0
     else:
         print("Open device OK")
-        #print("Close status %s\r\n" % FT260_STATUS(ftClose(handle)))
-        #return handle
 
     ftStatus = ftUART_Init(handle)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
