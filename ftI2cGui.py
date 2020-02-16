@@ -1,5 +1,7 @@
+# TODO - remove PysimpleGUI
 import PySimpleGUI as sg
 
+# import FT260_I2C_FLAG, FT260_STATUS, ftI2CMaster_Init, ftOpenByVidPid, ftI2CMaster_Write, ftI2CMaster_Read and more
 from ft_function import *
 from ft import findDeviceInPaths
 import signal
@@ -14,6 +16,7 @@ except ImportError:  # Python 3
     import tkinter as Tkinter
     import tkinter.ttk as ttk
 
+# TODO - remove multiprocessing after PysimpleGUI is removed
 import multiprocessing
 import queue
 
