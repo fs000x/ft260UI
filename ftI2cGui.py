@@ -6,19 +6,9 @@ from ft_function import *
 import ft
 import signal
 import struct
-import time
-
-# Tkinter GUI import
-try:
-    import Tkinter
-    import ttk
-except ImportError:  # Python 3
-    import tkinter as Tkinter
-    import tkinter.ttk as ttk
 
 # TODO - remove multiprocessing after PysimpleGUI is removed
 import multiprocessing
-import queue
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
@@ -32,66 +22,6 @@ def sigint_handler(sig, frame):
     global is_sigInt_up
     is_sigInt_up = True
 
-
-class CommLog(Tkinter.Frame):
-    """
-    Communication log for USB-I2C messages
-    """
-
-    def __init__(self, q: queue):
-        """
-        Constructor
-        """
-        self.parent = Tkinter.Tk()
-        self.q = q
-        Tkinter.Frame.__init__(self, self.parent)
-
-        # Communication log settings
-        self.parent.title("Communication log")
-        self.parent.grid_rowconfigure(0, weight=1)
-        self.parent.grid_columnconfigure(0, weight=1)
-        self.parent.config(background="lavender")
-
-        # Set the treeview
-        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message'))
-        self.tree.heading('#0', text='#')
-        self.tree.heading('#1', text='Timestamp')
-        self.tree.heading('#2', text='Direction')
-        self.tree.heading('#3', text='Address')
-        self.tree.heading('#4', text='Message')
-        self.tree.column('#0', minwidth=50, width=50, stretch=Tkinter.YES)
-        self.tree.column('#1', minwidth=150, width=150, stretch=Tkinter.YES)
-        self.tree.column('#2', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#4', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.grid(row=0, columnspan=4, sticky='nsew', )
-
-        # Initialize the counter
-        self.message_number = 0
-
-    def run(self):
-        self.parent.after(100,self.check_messages_and_show)
-        self.parent.mainloop()
-
-    def check_messages_and_show(self):
-        """
-        Check for messages in queue and add them all to treeview if there are any
-        """
-        self.parent.after(100, self.check_messages_and_show)
-        while not self.q.empty():
-            next_in_queue = self.q.get()
-            if next_in_queue is None:
-                self.parent.quit()
-                break
-            v=list()
-            v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
-            v.extend(next_in_queue)
-            self.tree.insert('', 'end', text=str(self.message_number), values=v)
-            self.message_number += 1
-
-def run_log(q):
-    comm_log = CommLog(q)
-    comm_log.run()
 
 def main():
     if not ft.findDeviceInPaths(FT260_Vid, FT260_Pid):
@@ -142,7 +72,7 @@ def main():
     window = sg.Window('FT260 I2C').Layout(layout)
 
     q = multiprocessing.Queue()
-    process_comm_log = multiprocessing.Process(target=run_log, args=[q,])
+    process_comm_log = multiprocessing.Process(target=ft.run_log, args=[q,])
     process_comm_log.start()
 
     # ---===--- Loop taking in user input and using it to call scripts --- #
