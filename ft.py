@@ -83,6 +83,14 @@ def openFtAsI2c(Vid, Pid, cfgRate):
 
     return handle
 
+def I2C_Mode_Name(flag :FT260_I2C_FLAG):
+    Dict = {FT260_I2C_FLAG.FT260_I2C_NONE: 'None',
+            FT260_I2C_FLAG.FT260_I2C_REPEATED_START: 'Repeated start',
+            FT260_I2C_FLAG.FT260_I2C_START_AND_STOP: 'Start&stop',
+            FT260_I2C_FLAG.FT260_I2C_START: 'Start',
+            FT260_I2C_FLAG.FT260_I2C_STOP: 'Stop'
+            }
+    return Dict[flag]
 
 def ftI2cConfig(handle, cfgRate):
     """
@@ -112,12 +120,14 @@ def ftI2cWrite(handle, i2cDev, flag, data):
         # Logging block. If enabled and there is data
         if _logQueue is not None and dwRealAccessData.value > 0:
             unpackstr = "<" + "B" * dwRealAccessData.value
-            writedata = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
-            for i in range(dwRealAccessData.value):
-                if not _logQueue.full():
-                    _logQueue.put(['Write', hex(i2cDev), hex(writedata[i])])
-                else:
-                    raise Exception("Interprocess communication Queue is full. Can't put new message.")
+            writetuple = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
+            msg =""
+            for i in writetuple:
+                msg += hex(i) + " "
+            if not _logQueue.full():
+                _logQueue.put(['Write', hex(i2cDev), msg, I2C_Mode_Name(flag)])
+            else:
+                raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
     return ftStatus, dwRealAccessData.value, buffer.raw
 
@@ -140,12 +150,14 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
     # Logging block. If enabled, data is valid and there is data
     if _logQueue is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
         unpackstr = "<" + "B" * dwRealAccessData.value
-        readdata = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
-        for i in range(dwRealAccessData.value):
-            if not _logQueue.full():
-                _logQueue.put(['Read', hex(i2cDev), hex(readdata[i])])
-            else:
-                raise Exception("Interprocess communication Queue is full. Can't put new message.")
+        readtuple = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
+        msg = ""
+        for i in readtuple:
+            msg += hex(i) + " "
+        if not _logQueue.full():
+            _logQueue.put(['Read', hex(i2cDev), msg, I2C_Mode_Name(flag)])
+        else:
+            raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
     return ftStatus, dwRealAccessData.value, buffer.raw
 
@@ -254,18 +266,20 @@ class _CommLog(Tkinter.Frame):
         self.parent.config(background="lavender")
 
         # Set the treeview
-        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message'))
+        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message', 'Mode'))
         self.tree.heading('#0', text='#')
         self.tree.heading('#1', text='Timestamp')
         self.tree.heading('#2', text='Direction')
         self.tree.heading('#3', text='Address')
         self.tree.heading('#4', text='Message')
+        self.tree.heading('#5', text='Mode')
         self.tree.column('#0', minwidth=50, width=50, stretch=Tkinter.YES)
         self.tree.column('#1', minwidth=150, width=150, stretch=Tkinter.YES)
         self.tree.column('#2', minwidth=70, width=70, stretch=Tkinter.YES)
         self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
         self.tree.column('#4', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.grid(row=0, columnspan=4, sticky='nsew', )
+        self.tree.column('#5', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.grid(row=0, columnspan=5, sticky='nsew', )
 
         # Initialize the counter
         self.message_number = 0
