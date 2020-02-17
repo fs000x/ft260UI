@@ -10,9 +10,6 @@ except ImportError:  # Python 3
 import time
 from multiprocessing import Queue
 
-FT260_Vid = 0x0403
-FT260_Pid = 0x6030
-
 
 def findDeviceInPaths(Vid, Pid):
     # Preparing paths list
@@ -42,28 +39,28 @@ def findDeviceInPaths(Vid, Pid):
     return ret
 
 
-def openFtAsI2c(Vid, Pid):
+def openFtAsI2c(Vid, Pid, rate):
     ftStatus = c_int(0)
     handle = c_void_p()
 
     # mode 0 is I2C, mode 1 is UART
-    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 0, byref(handle))
+    ftStatus = ftOpenByVidPid(Vid, Pid, 0, byref(handle))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
         print("Open device OK")
 
-    ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
+    ftStatus = ftI2CMaster_Init(handle, rate)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         ftClose(handle)
-        ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
+        ftStatus = ftOpenByVidPid(Vid, Pid, 1, byref(handle))
         if not ftStatus == FT260_STATUS.FT260_OK.value:
             print("ReOpen device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
             return 0
         else:
             print("ReOpen device OK")
-        ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
+        ftStatus = ftI2CMaster_Init(handle, rate)
         if not ftStatus == FT260_STATUS.FT260_OK.value:
             print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
             return 0

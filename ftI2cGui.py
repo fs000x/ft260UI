@@ -28,7 +28,7 @@ def main():
         sg.Popup("No FT260 Device")
         exit()
 
-    i2cHandle = ft.openFtAsI2c(FT260_Vid, FT260_Pid)
+    i2cHandle = ft.openFtAsI2c(FT260_Vid, FT260_Pid, 100)
     if not i2cHandle:
         sg.Popup("open i2cHandle error")
         exit()
@@ -39,7 +39,7 @@ def main():
 
     cfgFrame_lay = [
         [sg.Text('I2C Flag', size=(10, 1)),
-         sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value=FT260_I2C_FLAG.FT260_I2C_START_AND_STOP, size=(30, 1),
+         sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value=FT260_I2C_FLAG.FT260_I2C_START_AND_STOP.name, size=(30, 1),
                        key="flag")],
         [sg.Text('Clock Rate', size=(10, 1)),
          sg.InputText(str(100), size=(5, 1), key="rate", do_not_clear=True)],
