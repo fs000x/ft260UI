@@ -39,8 +39,16 @@ def findDeviceInPaths(Vid, Pid):
     return ret
 
 
-def openFtAsI2c(Vid, Pid, rate):
-    ftStatus = c_int(0)
+def openFtAsI2c(Vid, Pid, cfgRate):
+    """
+    Tries to open FY260 device by its VID and PID. Also initialize it with I2C speed defined by rate.
+    Returns device handle.
+    :param Vid: Vendor ID of the USB chip. For FT260 it is 0x0403
+    :param Pid: Product ID of the USB chip. For FT260_it is 0x6030
+    :param cfgRate: speed of connection in kbots. 100 and 400 are mostly used in I2C devices, though higher values are
+    also possible.
+    :return: handle for opened device. Handle must be stored for future use.
+    """
     handle = c_void_p()
 
     # mode 0 is I2C, mode 1 is UART
@@ -51,7 +59,7 @@ def openFtAsI2c(Vid, Pid, rate):
     else:
         print("Open device OK")
 
-    ftStatus = ftI2CMaster_Init(handle, rate)
+    ftStatus = ftI2CMaster_Init(handle, cfgRate)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         ftClose(handle)
         ftStatus = ftOpenByVidPid(Vid, Pid, 1, byref(handle))
@@ -60,7 +68,7 @@ def openFtAsI2c(Vid, Pid, rate):
             return 0
         else:
             print("ReOpen device OK")
-        ftStatus = ftI2CMaster_Init(handle, rate)
+        ftStatus = ftI2CMaster_Init(handle, cfgRate)
         if not ftStatus == FT260_STATUS.FT260_OK.value:
             print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
             return 0
@@ -71,7 +79,12 @@ def openFtAsI2c(Vid, Pid, rate):
 
 
 def ftI2cConfig(handle, cfgRate):
-    # config i2cRateDef
+    """
+    Sets I2C speed (rate). Standard values are 100 and 400 kbods. Higher values are also possible.
+    :param handle: Device handle from previous openFtAsI2c calls.
+    :param cfgRate: Rate in kbods. Example: 100
+    :return: None
+    """
     ftI2CMaster_Reset(handle)
     ftStatus = ftI2CMaster_Init(handle, cfgRate)
     if not ftStatus == FT260_STATUS.FT260_OK.value:

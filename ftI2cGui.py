@@ -47,7 +47,7 @@ def main():
     ]
 
     rwReg_lay = [
-        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="regDev", do_not_clear=True)],
+        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0x68), size=(5, 1), key="regDev", do_not_clear=True)],
         [sg.Text('Reg Bits', size=(10, 1)), sg.InputCombo([8, 16], default_value=8, size=(2, 1), key="regBits")],
         [sg.Text('Reg', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="reg", do_not_clear=True)],
         [sg.Text('Value Bits', size=(10, 1)),
@@ -56,7 +56,7 @@ def main():
         [sg.ReadButton('RegRead', size=(8, 1)), sg.ReadButton('RegWrite', size=(8, 1))]
     ]
     rwData_lay = [
-        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="dataDev", do_not_clear=True)],
+        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0x68), size=(5, 1), key="dataDev", do_not_clear=True)],
         [sg.Text('Read length', size=(10, 1)), sg.InputText('1', size=(5, 1), key="dataLen", do_not_clear=True)],
         [sg.Text('Data', size=(5, 1)), sg.Multiline(hex(0), size=(12, 1), key="data", do_not_clear=True)],
         [sg.ReadButton('DataRead', size=(8, 1)), sg.ReadButton('DataWrite', size=(9, 1))]
