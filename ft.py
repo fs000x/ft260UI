@@ -301,6 +301,7 @@ class _CommLog(Tkinter.Frame):
         # Start by asking Tkinter to run this check in next 100 ms, making check loop
         self.parent.after(100, self.check_messages_and_show)
         # While there are messages - process them
+        item = None
         while not self.q.empty():
             next_in_queue = self.q.get()
             # Check for killbomb
@@ -310,8 +311,10 @@ class _CommLog(Tkinter.Frame):
             v=list()
             v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
             v.extend(next_in_queue)
-            self.tree.insert('', 'end', text=str(self.message_number), values=v)
+            item = self.tree.insert('', 'end', text=str(self.message_number), values=v)
             self.message_number += 1
+        if item is not None:
+            self.tree.see(item)
 
 def _run_log(q: Queue):
     """
