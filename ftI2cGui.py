@@ -39,15 +39,16 @@ def main():
     leftFrame = [[sg.Output(size=(30, 30))]]
 
     cfgFrame_lay = [
-        [sg.Text('I2C Flag', size=(10, 1)),
+        [sg.Text('I2C Flag', size=(18, 1)),
          sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value=FT260_I2C_FLAG.FT260_I2C_START_AND_STOP.name, size=(30, 1),
                        key="flag")],
-        [sg.Text('Clock Rate', size=(10, 1)),
+        [sg.Text('Clock Rate', size=(18, 1)),
          sg.InputText(str(100), size=(5, 1), key="rate", do_not_clear=True)],
+        [sg.Text('I2C slave device address', size=(18, 1)),
+         sg.InputText(hex(0x68), size=(5, 1), key="slaveAddr", do_not_clear=True)],
     ]
 
     rwReg_lay = [
-        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0x68), size=(5, 1), key="regDev", do_not_clear=True)],
         [sg.Text('Reg Bits', size=(10, 1)), sg.InputCombo([8, 16], default_value=8, size=(2, 1), key="regBits")],
         [sg.Text('Reg', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="reg", do_not_clear=True)],
         [sg.Text('Value Bits', size=(10, 1)),
@@ -56,7 +57,6 @@ def main():
         [sg.ReadButton('RegRead', size=(8, 1)), sg.ReadButton('RegWrite', size=(8, 1))]
     ]
     rwData_lay = [
-        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0x68), size=(5, 1), key="dataDev", do_not_clear=True)],
         [sg.Text('Read length', size=(10, 1)), sg.InputText('1', size=(5, 1), key="dataLen", do_not_clear=True)],
         [sg.Text('Data', size=(5, 1)), sg.Multiline(hex(0), size=(12, 1), key="data", do_not_clear=True)],
         [sg.ReadButton('DataRead', size=(8, 1)), sg.ReadButton('DataWrite', size=(9, 1))]
@@ -92,7 +92,7 @@ def main():
             # Interpret register address as hexadecimal value
             regAddr = int(value['reg'], 16)
             # Interpret device address as hexadecimal value
-            devAddr = int(value["regDev"], 16)
+            devAddr = int(value["slaveAddr"], 16)
             # Interpret value to write as hexadecimal value
             regValue = int(value['regValue'], 16)
             ft.ftI2cWrite(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]],
@@ -112,7 +112,7 @@ def main():
             # Interpret register address as hexadecimal value
             regAddr = int(value['reg'], 16)
             # Interpret device address as hexadecimal value
-            devAddr = int(value["regDev"], 16)
+            devAddr = int(value["slaveAddr"], 16)
             ft.ftI2cWrite(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]],
                        struct.pack("".join(packstr), regAddr))
             # Register address is send. Can now retrieve register data
@@ -126,7 +126,7 @@ def main():
 
         elif button == 'DataRead':
             updateStr = ""
-            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, int(value["dataDev"], 16), FT260_I2C_FLAG[value["flag"]],
+            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, int(value["slaveAddr"], 16), FT260_I2C_FLAG[value["flag"]],
                                  int(value['dataLen']))
 
             # Error checking
@@ -148,7 +148,7 @@ def main():
                 packstr.append('B')
 
             (status, data_real_read_len, readData) = ft.ftI2cWrite(i2cHandle,
-                                                                int(value["dataDev"], 16),
+                                                                int(value["slaveAddr"], 16),
                                                                 FT260_I2C_FLAG[value["flag"]],
                                                                 struct.pack("".join(packstr), int(value['reg'], 16),
                                                                             int(value['regValue'], 16))
