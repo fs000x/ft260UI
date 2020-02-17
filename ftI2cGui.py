@@ -39,9 +39,6 @@ def main():
     leftFrame = [[sg.Output(size=(30, 30))]]
 
     cfgFrame_lay = [
-        [sg.Text('I2C Flag', size=(18, 1)),
-         sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value=FT260_I2C_FLAG.FT260_I2C_START_AND_STOP.name, size=(30, 1),
-                       key="flag")],
         [sg.Text('Clock Rate', size=(18, 1)),
          sg.InputText(str(100), size=(5, 1), key="rate", do_not_clear=True)],
         [sg.Text('I2C slave device address', size=(18, 1)),
@@ -95,7 +92,7 @@ def main():
             devAddr = int(value["slaveAddr"], 16)
             # Interpret value to write as hexadecimal value
             regValue = int(value['regValue'], 16)
-            ft.ftI2cWrite(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]],
+            ft.ftI2cWrite(i2cHandle, devAddr, FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                        struct.pack("".join(packstr), regAddr, regValue))
         elif button == 'RegRead':
             packstr = ['>', 'B']
@@ -113,10 +110,15 @@ def main():
             regAddr = int(value['reg'], 16)
             # Interpret device address as hexadecimal value
             devAddr = int(value["slaveAddr"], 16)
-            ft.ftI2cWrite(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]],
-                       struct.pack("".join(packstr), regAddr))
+            ft.ftI2cWrite(i2cHandle,
+                          devAddr,
+                          FT260_I2C_FLAG.FT260_I2C_START,
+                          struct.pack("".join(packstr), regAddr))
             # Register address is send. Can now retrieve register data
-            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]], readLen)
+            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle,
+                                                                  devAddr,
+                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                  readLen)
             if data_real_read_len != len(readData):
                 print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len, len(readData)))
             elif not status == FT260_STATUS.FT260_OK.value:
@@ -126,8 +128,10 @@ def main():
 
         elif button == 'DataRead':
             updateStr = ""
-            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, int(value["slaveAddr"], 16), FT260_I2C_FLAG[value["flag"]],
-                                 int(value['dataLen']))
+            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle,
+                                                                  int(value["slaveAddr"], 16),
+                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                  int(value['dataLen']))
 
             # Error checking
             if data_real_read_len != len(readData):
@@ -149,7 +153,7 @@ def main():
 
             (status, data_real_read_len, readData) = ft.ftI2cWrite(i2cHandle,
                                                                 int(value["slaveAddr"], 16),
-                                                                FT260_I2C_FLAG[value["flag"]],
+                                                                FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                                 struct.pack("".join(packstr), int(value['reg'], 16),
                                                                             int(value['regValue'], 16))
                                                                 )

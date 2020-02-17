@@ -111,9 +111,11 @@ def ftI2cConfig(handle, cfgRate):
 def ftI2cWrite(handle, i2cDev, flag, data):
     # Write data
     dwRealAccessData = c_ulong(0)
+    status = c_uint8(0)  # To store status after operation
     buffer = create_string_buffer(data)
     buffer_void = cast(buffer, c_void_p)
     ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer_void, len(data), byref(dwRealAccessData))
+    ftI2CMaster_GetStatus(handle, byref(status))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
@@ -125,7 +127,7 @@ def ftI2cWrite(handle, i2cDev, flag, data):
             for i in writetuple:
                 msg += hex(i) + " "
             if not _logQueue.full():
-                _logQueue.put(['Write', hex(i2cDev), msg, I2C_Mode_Name(flag)])
+                _logQueue.put(['Write', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
             else:
                 raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
@@ -142,10 +144,12 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
     :return:
     """
     dwRealAccessData = c_ulong(0) # Create variable to store received bytes
+    status = c_uint8(0) # To store status after operation
     buffer = create_string_buffer(readLen) # Create buffer to hold received data as string
     buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
 
     ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
+    ftI2CMaster_GetStatus(handle, byref(status))
 
     # Logging block. If enabled, data is valid and there is data
     if _logQueue is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
@@ -155,7 +159,7 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
         for i in readtuple:
             msg += hex(i) + " "
         if not _logQueue.full():
-            _logQueue.put(['Read', hex(i2cDev), msg, I2C_Mode_Name(flag)])
+            _logQueue.put(['Read', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
         else:
             raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
@@ -266,25 +270,27 @@ class _CommLog(Tkinter.Frame):
         self.parent.config(background="lavender")
 
         # Set the treeview
-        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message', 'Mode'))
+        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message', 'Mode', 'Status'))
         self.tree.heading('#0', text='#')
         self.tree.heading('#1', text='Timestamp')
         self.tree.heading('#2', text='Direction')
         self.tree.heading('#3', text='Address')
         self.tree.heading('#4', text='Message')
         self.tree.heading('#5', text='Mode')
-        self.tree.column('#0', minwidth=50, width=50, stretch=Tkinter.YES)
-        self.tree.column('#1', minwidth=150, width=150, stretch=Tkinter.YES)
+        self.tree.heading('#6', text='Status')
+        self.tree.column('#0', minwidth=40, width=40, stretch=Tkinter.YES)
+        self.tree.column('#1', minwidth=130, width=130, stretch=Tkinter.YES)
         self.tree.column('#2', minwidth=70, width=70, stretch=Tkinter.YES)
         self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#4', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#5', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.column('#4', minwidth=130, width=130, stretch=Tkinter.YES)
+        self.tree.column('#5', minwidth=90, width=90, stretch=Tkinter.YES)
+        self.tree.column('#6', minwidth=50, width=50, stretch=Tkinter.YES)
         self.tree.grid(row=0, column=0, sticky='nsew', )
 
-        vsb = ttk.Scrollbar(self.parent, orient="vertical", command=self.tree.yview)
-        vsb.grid(row=0, column=1, sticky = 'ns')
+        self.vsb = ttk.Scrollbar(self.parent, orient="vertical", command=self.tree.yview)
+        self.vsb.grid(row=0, column=1, sticky = 'ns')
 
-        self.tree.configure(yscrollcommand=vsb.set)
+        self.tree.configure(yscrollcommand=self.vsb.set)
 
         # Initialize the counter
         self.message_number = 0
