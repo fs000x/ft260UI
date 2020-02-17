@@ -279,7 +279,12 @@ class _CommLog(Tkinter.Frame):
         self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
         self.tree.column('#4', minwidth=70, width=70, stretch=Tkinter.YES)
         self.tree.column('#5', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.grid(row=0, columnspan=5, sticky='nsew', )
+        self.tree.grid(row=0, column=0, sticky='nsew', )
+
+        vsb = ttk.Scrollbar(self.parent, orient="vertical", command=self.tree.yview)
+        vsb.grid(row=0, column=1, sticky = 'ns')
+
+        self.tree.configure(yscrollcommand=vsb.set)
 
         # Initialize the counter
         self.message_number = 0
