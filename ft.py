@@ -227,6 +227,7 @@ class _CommLog(Tkinter.Frame):
         self.message_number = 0
 
     def run(self):
+        # Ask Tkinter to run message check in 100 ms
         self.parent.after(100,self.check_messages_and_show)
         self.parent.mainloop()
 
@@ -234,9 +235,12 @@ class _CommLog(Tkinter.Frame):
         """
         Check for messages in queue and add them all to treeview if there are any
         """
+        # Start by asking Tkinter to run this check in next 100 ms, making check loop
         self.parent.after(100, self.check_messages_and_show)
+        # While there are messages - process them
         while not self.q.empty():
             next_in_queue = self.q.get()
+            # Check for killbomb
             if next_in_queue is None:
                 self.parent.quit()
                 break

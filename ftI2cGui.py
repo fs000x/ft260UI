@@ -33,6 +33,7 @@ def main():
         sg.Popup("open i2cHandle error")
         exit()
 
+    # A way to exit while True
     signal.signal(signal.SIGINT, sigint_handler)
 
     leftFrame = [[sg.Output(size=(30, 30))]]
