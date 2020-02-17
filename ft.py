@@ -233,8 +233,6 @@ def ftUartReadLoop(handle):
             if dwAvailableData.value > 0:
                 print("buffer : %s\r\n" % buffer2Data.value.decode("utf-8"))
 
-    time.sleep(1)
-
 
 class _CommLog(Tkinter.Frame):
     """
