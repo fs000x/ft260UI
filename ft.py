@@ -8,7 +8,12 @@ except ImportError:  # Python 3
     import tkinter.ttk as ttk
 
 import time
-from multiprocessing import Queue
+import struct
+from multiprocessing import Queue, Process
+
+
+# If log is enabled then the Queue will be initialized
+_logQueue = None
 
 
 def findDeviceInPaths(Vid, Pid):
@@ -52,6 +57,7 @@ def openFtAsI2c(Vid, Pid, cfgRate):
     handle = c_void_p()
 
     # mode 0 is I2C, mode 1 is UART
+    # Opening first device of possibly many available is used by providing indev 0 as third parameter.
     ftStatus = ftOpenByVidPid(Vid, Pid, 0, byref(handle))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
@@ -94,27 +100,54 @@ def ftI2cConfig(handle, cfgRate):
         print("I2c Init OK")
 
 
-def ftI2cWrite(handle, i2cDev, flag, data=b''):
+def ftI2cWrite(handle, i2cDev, flag, data):
     # Write data
     dwRealAccessData = c_ulong(0)
-    bufferData = c_char_p(bytes(data))
-    buffer = cast(bufferData, c_void_p)
-    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
+    buffer = create_string_buffer(data)
+    buffer_void = cast(buffer, c_void_p)
+    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer_void, len(data), byref(dwRealAccessData))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
-        print("Write bytes : %d\r\n" % dwRealAccessData.value)
+        # Logging block. If enabled and there is data
+        if _logQueue is not None and dwRealAccessData.value > 0:
+            unpackstr = "<" + "B" * dwRealAccessData.value
+            writedata = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
+            for i in range(dwRealAccessData.value):
+                if not _logQueue.full():
+                    _logQueue.put(['Write', hex(i2cDev), hex(writedata[i])])
+                else:
+                    raise Exception("Interprocess communication Queue is full. Can't put new message.")
+
+    return ftStatus, dwRealAccessData.value, buffer.raw
 
 
-def ftI2cRead(handle, i2cDev, flag, readLen=1):
-    # Read data
+def ftI2cRead(handle, i2cDev, flag, readLen):
+    """
+    Read data
+    :param handle:
+    :param i2cDev:
+    :param flag:
+    :param readLen:
+    :return:
+    """
     dwRealAccessData = c_ulong(0) # Create variable to store received bytes
-    buffer = create_string_buffer(readLen + 1) # Create buffer to hold received data as string
+    buffer = create_string_buffer(readLen) # Create buffer to hold received data as string
     buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
 
     ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
 
-    return ftStatus, dwRealAccessData.value, buffer.value
+    # Logging block. If enabled, data is valid and there is data
+    if _logQueue is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
+        unpackstr = "<" + "B" * dwRealAccessData.value
+        readdata = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
+        for i in range(dwRealAccessData.value):
+            if not _logQueue.full():
+                _logQueue.put(['Read', hex(i2cDev), hex(readdata[i])])
+            else:
+                raise Exception("Interprocess communication Queue is full. Can't put new message.")
+
+    return ftStatus, dwRealAccessData.value, buffer.raw
 
 
 def openFtAsUart(Vid, Pid):
@@ -122,7 +155,7 @@ def openFtAsUart(Vid, Pid):
     handle = c_void_p()
 
     # mode 0 is I2C, mode 1 is UART
-    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
+    ftStatus = ftOpenByVidPid(Vid, Pid, 1, byref(handle))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
@@ -263,12 +296,35 @@ class _CommLog(Tkinter.Frame):
             self.tree.insert('', 'end', text=str(self.message_number), values=v)
             self.message_number += 1
 
-def run_log(q: Queue):
+def _run_log(q: Queue):
     """
     Creates Tkinter log window for all transactions in separate process.
     Process can be terminated with killbomb, sending None in message queue.
     :param q: multiprocessing Queue object for message queue
     :return: None
     """
+
     comm_log = _CommLog(q)
     comm_log.run()
+
+def I2Clog(enable = False):
+    """
+    Creates or destroys log window existing in separate process. Uses multiprocessing, so you must call disabling
+    of this log before interrupting main process.
+    :param enable: If True the log is created. If False - destroyed.
+    :return: None
+    """
+    global _logQueue
+    if enable is True:
+        if _logQueue is not None:
+            raise Exception("Try do create log, but seems it is active already.")
+        else:
+            _logQueue = Queue()
+            process_comm_log = Process(target=_run_log, args=[_logQueue, ])
+            process_comm_log.start()
+    else:
+        if _logQueue is None:
+            raise Exception("Try do disable log, but seems it is not active.")
+        else:
+            _logQueue.put(None)
+            _logQueue = None

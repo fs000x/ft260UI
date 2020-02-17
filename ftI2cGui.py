@@ -71,15 +71,11 @@ def main():
     ]
 
     window = sg.Window('FT260 I2C').Layout(layout)
-
-    q = multiprocessing.Queue()
-    process_comm_log = multiprocessing.Process(target=ft.run_log, args=[q,])
-    process_comm_log.start()
+    ft.I2Clog(True)
 
     # ---===--- Loop taking in user input and using it to call scripts --- #
     while True:
         (button, value) = window.Read()
-        # sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
         global is_sigInt_up
         if is_sigInt_up or button is None:  # window.Read will block
             print("Close i2c Handle")
@@ -93,8 +89,14 @@ def main():
                 packstr[2] = 'H'
             elif int(value['valueBits']) == 32:
                 packstr[2] = 'I'
-            ft.ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
-                       struct.pack("".join(packstr), int(value['reg'], 16), int(value['regValue'], 16)))
+            # Interpret register address as hexadecimal value
+            regAddr = int(value['reg'], 16)
+            # Interpret device address as hexadecimal value
+            devAddr = int(value["regDev"], 16)
+            # Interpret value to write as hexadecimal value
+            regValue = int(value['regValue'], 16)
+            ft.ftI2cWrite(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]],
+                       struct.pack("".join(packstr), regAddr, regValue))
         elif button == 'RegRead':
             packstr = ['>', 'B']
             unpackstr = ['>', 'B']
@@ -107,14 +109,20 @@ def main():
             elif int(value['valueBits']) == 32:
                 readLen = 4
                 unpackstr[1] = 'I'
-            ft.ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
-                       struct.pack("".join(packstr), int(value['reg'], 16)))
-            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]], readLen)
-            print(len(readData), readData, unpackstr)
+            # Interpret register address as hexadecimal value
+            regAddr = int(value['reg'], 16)
+            # Interpret device address as hexadecimal value
+            devAddr = int(value["regDev"], 16)
+            ft.ftI2cWrite(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]],
+                       struct.pack("".join(packstr), regAddr))
+            # Register address is send. Can now retrieve register data
+            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, devAddr, FT260_I2C_FLAG[value["flag"]], readLen)
+            if data_real_read_len != len(readData):
+                print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len, len(readData)))
+            elif not status == FT260_STATUS.FT260_OK.value:
+                print("Read error : %s\r\n" % status)
             if not len(readData) == 0:
                 window.FindElement("regValue").Update("%#x" % struct.unpack("".join(unpackstr), readData))
-            else:
-                window.FindElement("regValue").Update("0x00")
 
         elif button == 'DataRead':
             updateStr = ""
@@ -130,8 +138,6 @@ def main():
             unpackstr = "<" + "B" * len(readData)
             for i in struct.unpack(unpackstr, readData):
                 updateStr = updateStr + " " + hex(i)
-                if not q.full():
-                    q.put(['Read', value["dataDev"], hex(i)])
             window.FindElement("data").Update(updateStr)
 
         elif button == 'DataWrite':
@@ -146,7 +152,6 @@ def main():
                                                                 FT260_I2C_FLAG[value["flag"]],
                                                                 struct.pack("".join(packstr), int(value['reg'], 16),
                                                                             int(value['regValue'], 16))
-                       #struct.pack("".join(packstr), int(value['reg'], 16), int(value['regValue'], 16))
                                                                 )
 
             # Error checking
@@ -159,13 +164,8 @@ def main():
             unpackstr = "<" + "B" * len(readData)
             for i in struct.unpack(unpackstr, readData):
                 updateStr = updateStr + " " + hex(i)
-                if not q.full():
-                    q.put(['Read', value["dataDev"], hex(i)])
             window.FindElement("data").Update(updateStr)
-            if not q.full():
-                q.put(('From mainloop', 'Hello'))
-            sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
-    q.put(None)
+    ft.I2Clog(False)
 
 if __name__ == "__main__":
     # freeze_support is required for pyinstaller if multiprocessing is used
