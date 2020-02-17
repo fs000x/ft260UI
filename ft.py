@@ -1,5 +1,14 @@
 from ft_function import *
+# Tkinter GUI import
+try:
+    import Tkinter
+    import ttk
+except ImportError:  # Python 3
+    import tkinter as Tkinter
+    import tkinter.ttk as ttk
+
 import time
+from multiprocessing import Queue
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
@@ -33,15 +42,71 @@ def findDeviceInPaths(Vid, Pid):
     return ret
 
 
-'''
-ftStatus = ftOpen(0, byref(handle))
-if not ftStatus == FT260_STATUS.FT260_OK.value:
-    print("Open device Failed, status: %d\r\n" % FT260_STATUS(ftStatus))
-    return 0
-else:
-    print("Open device OK")
-    print("Close status %s\r\n" % FT260_STATUS(ftClose(handle)))
-'''
+def openFtAsI2c(Vid, Pid):
+    ftStatus = c_int(0)
+    handle = c_void_p()
+
+    # mode 0 is I2C, mode 1 is UART
+    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 0, byref(handle))
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        return 0
+    else:
+        print("Open device OK")
+
+    ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        ftClose(handle)
+        ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
+        if not ftStatus == FT260_STATUS.FT260_OK.value:
+            print("ReOpen device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+            return 0
+        else:
+            print("ReOpen device OK")
+        ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
+        if not ftStatus == FT260_STATUS.FT260_OK.value:
+            print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+            return 0
+
+    print("I2c Init OK")
+
+    return handle
+
+
+def ftI2cConfig(handle, cfgRate):
+    # config i2cRateDef
+    ftI2CMaster_Reset(handle)
+    ftStatus = ftI2CMaster_Init(handle, cfgRate)
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
+        return 0
+    else:
+        print("I2c Init OK")
+
+
+def ftI2cWrite(handle, i2cDev, flag, data=b''):
+    # Write data
+    dwRealAccessData = c_ulong(0)
+    bufferData = c_char_p(bytes(data))
+    buffer = cast(bufferData, c_void_p)
+    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
+    if not ftStatus == FT260_STATUS.FT260_OK.value:
+        print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
+    else:
+        print("Write bytes : %d\r\n" % dwRealAccessData.value)
+
+
+def ftI2cRead(handle, i2cDev, flag, readLen=1):
+    # Read data
+    dwRealAccessData = c_ulong(0) # Create variable to store received bytes
+    buffer = create_string_buffer(readLen + 1) # Create buffer to hold received data as string
+    buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
+
+    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
+
+    return ftStatus, dwRealAccessData.value, buffer.value
+
+
 def openFtAsUart(Vid, Pid):
     ftStatus = c_int(0)
     handle = c_void_p()
@@ -53,8 +118,6 @@ def openFtAsUart(Vid, Pid):
         return 0
     else:
         print("Open device OK")
-        #print("Close status %s\r\n" % FT260_STATUS(ftClose(handle)))
-        #return handle
 
     ftStatus = ftUART_Init(handle)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
@@ -128,3 +191,70 @@ def ftUartReadLoop(handle):
                 print("buffer : %s\r\n" % buffer2Data.value.decode("utf-8"))
 
     time.sleep(1)
+
+
+class _CommLog(Tkinter.Frame):
+    """
+    Communication log for USB-I2C messages
+    """
+
+    def __init__(self, q: Queue):
+        """
+        Constructor
+        """
+        self.parent = Tkinter.Tk()
+        self.q = q
+        Tkinter.Frame.__init__(self, self.parent)
+
+        # Communication log settings
+        self.parent.title("Communication log")
+        self.parent.grid_rowconfigure(0, weight=1)
+        self.parent.grid_columnconfigure(0, weight=1)
+        self.parent.config(background="lavender")
+
+        # Set the treeview
+        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message'))
+        self.tree.heading('#0', text='#')
+        self.tree.heading('#1', text='Timestamp')
+        self.tree.heading('#2', text='Direction')
+        self.tree.heading('#3', text='Address')
+        self.tree.heading('#4', text='Message')
+        self.tree.column('#0', minwidth=50, width=50, stretch=Tkinter.YES)
+        self.tree.column('#1', minwidth=150, width=150, stretch=Tkinter.YES)
+        self.tree.column('#2', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.column('#4', minwidth=70, width=70, stretch=Tkinter.YES)
+        self.tree.grid(row=0, columnspan=4, sticky='nsew', )
+
+        # Initialize the counter
+        self.message_number = 0
+
+    def run(self):
+        self.parent.after(100,self.check_messages_and_show)
+        self.parent.mainloop()
+
+    def check_messages_and_show(self):
+        """
+        Check for messages in queue and add them all to treeview if there are any
+        """
+        self.parent.after(100, self.check_messages_and_show)
+        while not self.q.empty():
+            next_in_queue = self.q.get()
+            if next_in_queue is None:
+                self.parent.quit()
+                break
+            v=list()
+            v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+            v.extend(next_in_queue)
+            self.tree.insert('', 'end', text=str(self.message_number), values=v)
+            self.message_number += 1
+
+def run_log(q: Queue):
+    """
+    Creates Tkinter log window for all transactions in separate process.
+    Process can be terminated with killbomb, sending None in message queue.
+    :param q: multiprocessing Queue object for message queue
+    :return: None
+    """
+    comm_log = _CommLog(q)
+    comm_log.run()

@@ -3,96 +3,15 @@ import PySimpleGUI as sg
 
 # import FT260_I2C_FLAG, FT260_STATUS, ftI2CMaster_Init, ftOpenByVidPid, ftI2CMaster_Write, ftI2CMaster_Read and more
 from ft_function import *
-from ft import findDeviceInPaths
+import ft
 import signal
 import struct
-import time
-
-# Tkinter GUI import
-try:
-    import Tkinter
-    import ttk
-except ImportError:  # Python 3
-    import tkinter as Tkinter
-    import tkinter.ttk as ttk
 
 # TODO - remove multiprocessing after PysimpleGUI is removed
 import multiprocessing
-import queue
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
-
-i2cCfgDef = {
-    'flag': FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-    'rate': 100
-}
-i2cDevDef = 0x1E
-
-
-def openFtAsI2c(Vid, Pid):
-    ftStatus = c_int(0)
-    handle = c_void_p()
-
-    # mode 0 is I2C, mode 1 is UART
-    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 0, byref(handle))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-        return 0
-    else:
-        print("Open device OK")
-
-    ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        ftClose(handle)
-        ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
-        if not ftStatus == FT260_STATUS.FT260_OK.value:
-            print("ReOpen device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-            return 0
-        else:
-            print("ReOpen device OK")
-        ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
-        if not ftStatus == FT260_STATUS.FT260_OK.value:
-            print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-            return 0
-
-    print("I2c Init OK")
-
-    return handle
-
-
-def ftI2cConfig(handle, cfgRate=i2cCfgDef['rate']):
-    # config i2cRateDef
-    ftI2CMaster_Reset(handle)
-    ftStatus = ftI2CMaster_Init(handle, cfgRate)
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-        return 0
-    else:
-        print("I2c Init OK")
-
-
-def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
-    # Write data
-    dwRealAccessData = c_ulong(0)
-    bufferData = c_char_p(bytes(data))
-    buffer = cast(bufferData, c_void_p)
-    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
-    else:
-        print("Write bytes : %d\r\n" % dwRealAccessData.value)
-
-
-def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
-    # Read data
-    dwRealAccessData = c_ulong(0) # Create variable to store received bytes
-    buffer = create_string_buffer(readLen + 1) # Create buffer to hold received data as string
-    buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
-
-    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
-
-    return ftStatus, dwRealAccessData.value, buffer.value
 
 
 is_sigInt_up = False
@@ -104,72 +23,12 @@ def sigint_handler(sig, frame):
     is_sigInt_up = True
 
 
-class CommLog(Tkinter.Frame):
-    '''
-    Communication log for USB-I2C messages
-    '''
-
-    def __init__(self, q: queue):
-        '''
-        Constructor
-        '''
-        self.parent = Tkinter.Tk()
-        self.q = q
-        Tkinter.Frame.__init__(self, self.parent)
-
-        # Communication log settings
-        self.parent.title("Communication log")
-        self.parent.grid_rowconfigure(0, weight=1)
-        self.parent.grid_columnconfigure(0, weight=1)
-        self.parent.config(background="lavender")
-
-        # Set the treeview
-        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message'))
-        self.tree.heading('#0', text='#')
-        self.tree.heading('#1', text='Timestamp')
-        self.tree.heading('#2', text='Direction')
-        self.tree.heading('#3', text='Address')
-        self.tree.heading('#4', text='Message')
-        self.tree.column('#0', minwidth=50, width=50, stretch=Tkinter.YES)
-        self.tree.column('#1', minwidth=150, width=150, stretch=Tkinter.YES)
-        self.tree.column('#2', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#4', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.grid(row=0, columnspan=4, sticky='nsew', )
-
-        # Initialize the counter
-        self.message_number = 0
-
-    def run(self):
-        self.parent.after(100,self.check_messages_and_show)
-        self.parent.mainloop()
-
-    def check_messages_and_show(self):
-        """
-        Check for messages in queue and add them all to treeview if there are any
-        """
-        self.parent.after(100, self.check_messages_and_show)
-        while not self.q.empty():
-            next_in_queue = self.q.get()
-            if next_in_queue is None:
-                self.parent.quit()
-                break
-            v=list()
-            v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
-            v.extend(next_in_queue)
-            self.tree.insert('', 'end', text=str(self.message_number), values=v)
-            self.message_number += 1
-
-def run_log(q):
-    comm_log = CommLog(q)
-    comm_log.run()
-
 def main():
-    if not findDeviceInPaths(FT260_Vid, FT260_Pid):
+    if not ft.findDeviceInPaths(FT260_Vid, FT260_Pid):
         sg.Popup("No FT260 Device")
         exit()
 
-    i2cHandle = openFtAsI2c(FT260_Vid, FT260_Pid)
+    i2cHandle = ft.openFtAsI2c(FT260_Vid, FT260_Pid)
     if not i2cHandle:
         sg.Popup("open i2cHandle error")
         exit()
@@ -180,14 +39,14 @@ def main():
 
     cfgFrame_lay = [
         [sg.Text('I2C Flag', size=(10, 1)),
-         sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value=i2cCfgDef['flag'].name, size=(30, 1),
+         sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value=FT260_I2C_FLAG.FT260_I2C_START_AND_STOP, size=(30, 1),
                        key="flag")],
         [sg.Text('Clock Rate', size=(10, 1)),
-         sg.InputText(str(i2cCfgDef['rate']), size=(5, 1), key="rate", do_not_clear=True)],
+         sg.InputText(str(100), size=(5, 1), key="rate", do_not_clear=True)],
     ]
 
     rwReg_lay = [
-        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(i2cDevDef), size=(5, 1), key="regDev", do_not_clear=True)],
+        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="regDev", do_not_clear=True)],
         [sg.Text('Reg Bits', size=(10, 1)), sg.InputCombo([8, 16], default_value=8, size=(2, 1), key="regBits")],
         [sg.Text('Reg', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="reg", do_not_clear=True)],
         [sg.Text('Value Bits', size=(10, 1)),
@@ -196,7 +55,7 @@ def main():
         [sg.ReadButton('RegRead', size=(8, 1)), sg.ReadButton('RegWrite', size=(8, 1))]
     ]
     rwData_lay = [
-        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(i2cDevDef), size=(5, 1), key="dataDev", do_not_clear=True)],
+        [sg.Text('DevAddr', size=(10, 1)), sg.InputText(hex(0), size=(5, 1), key="dataDev", do_not_clear=True)],
         [sg.Text('Read length', size=(10, 1)), sg.InputText('1', size=(5, 1), key="dataLen", do_not_clear=True)],
         [sg.Text('Data', size=(5, 1)), sg.Multiline(hex(0), size=(12, 1), key="data", do_not_clear=True)],
         [sg.ReadButton('DataRead', size=(8, 1)), sg.ReadButton('DataWrite', size=(9, 1))]
@@ -213,7 +72,7 @@ def main():
     window = sg.Window('FT260 I2C').Layout(layout)
 
     q = multiprocessing.Queue()
-    process_comm_log = multiprocessing.Process(target=run_log, args=[q,])
+    process_comm_log = multiprocessing.Process(target=ft.run_log, args=[q,])
     process_comm_log.start()
 
     # ---===--- Loop taking in user input and using it to call scripts --- #
@@ -233,7 +92,7 @@ def main():
                 packstr[2] = 'H'
             elif int(value['valueBits']) == 32:
                 packstr[2] = 'I'
-            ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
+            ft.ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
                        struct.pack("".join(packstr), int(value['reg'], 16), int(value['regValue'], 16)))
         elif button == 'RegRead':
             packstr = ['>', 'B']
@@ -247,9 +106,9 @@ def main():
             elif int(value['valueBits']) == 32:
                 readLen = 4
                 unpackstr[1] = 'I'
-            ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
+            ft.ftI2cWrite(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]],
                        struct.pack("".join(packstr), int(value['reg'], 16)))
-            (status, data_real_read_len, readData) = ftI2cRead(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]], readLen)
+            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, int(value["regDev"], 16), FT260_I2C_FLAG[value["flag"]], readLen)
             print(len(readData), readData, unpackstr)
             if not len(readData) == 0:
                 window.FindElement("regValue").Update("%#x" % struct.unpack("".join(unpackstr), readData))
@@ -258,7 +117,7 @@ def main():
 
         elif button == 'DataRead':
             updateStr = ""
-            (status, data_real_read_len, readData) = ftI2cRead(i2cHandle, int(value["dataDev"], 16), FT260_I2C_FLAG[value["flag"]],
+            (status, data_real_read_len, readData) = ft.ftI2cRead(i2cHandle, int(value["dataDev"], 16), FT260_I2C_FLAG[value["flag"]],
                                  int(value['dataLen']))
 
             # Error checking
@@ -281,7 +140,7 @@ def main():
             for i in range(0, len(data_to_write)):
                 packstr.append('B')
 
-            (status, data_real_read_len, readData) = ftI2cWrite(i2cHandle,
+            (status, data_real_read_len, readData) = ft.ftI2cWrite(i2cHandle,
                                                                 int(value["dataDev"], 16),
                                                                 FT260_I2C_FLAG[value["flag"]],
                                                                 struct.pack("".join(packstr), int(value['reg'], 16),
@@ -308,5 +167,6 @@ def main():
     q.put(None)
 
 if __name__ == "__main__":
+    # freeze_support is required for pyinstaller if multiprocessing is used
     multiprocessing.freeze_support()
     main()

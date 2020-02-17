@@ -1,3 +1,7 @@
+"""
+Wrapper for LibFT260 using ctypes
+"""
+
 from ctypes import *
 from enum import *
 
