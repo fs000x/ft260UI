@@ -255,22 +255,27 @@ class _CommLog(Tkinter.Frame):
     Communication log for USB-I2C messages
     """
 
-    def __init__(self, q: Queue):
+    def __init__(self, q: Queue, parent = None):
         """
         Constructor
         """
-        self.parent = Tkinter.Tk()
-        self.q = q
-        Tkinter.Frame.__init__(self, self.parent)
+        if parent is None:
+            self.parent = Tkinter.Tk()
+            self.parent.title("Communication log")
+            self.parent.config(background="lavender")
+        else:
+            self.parent = parent
 
-        # Communication log settings
-        self.parent.title("Communication log")
-        self.parent.grid_rowconfigure(0, weight=1)
-        self.parent.grid_columnconfigure(0, weight=1)
-        self.parent.config(background="lavender")
+        self.q = q
+        super().__init__(self.parent)
+        self.pack(fill = "both", expand = True)
+
+        # Inside frame grid config
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
         # Set the treeview
-        self.tree = ttk.Treeview(self.parent, columns=('Timestamp', 'Direction', 'Address', 'Message', 'Mode', 'Status'))
+        self.tree = ttk.Treeview(self, columns=('Timestamp', 'Direction', 'Address', 'Message', 'Mode', 'Status'))
         self.tree.heading('#0', text='#')
         self.tree.heading('#1', text='Timestamp')
         self.tree.heading('#2', text='Direction')
@@ -285,12 +290,14 @@ class _CommLog(Tkinter.Frame):
         self.tree.column('#4', minwidth=130, width=130, stretch=Tkinter.YES)
         self.tree.column('#5', minwidth=90, width=90, stretch=Tkinter.YES)
         self.tree.column('#6', minwidth=50, width=50, stretch=Tkinter.YES)
-        self.tree.grid(row=0, column=0, sticky='nsew', )
 
-        self.vsb = ttk.Scrollbar(self.parent, orient="vertical", command=self.tree.yview)
-        self.vsb.grid(row=0, column=1, sticky = 'ns')
-
+        # Scrollbar
+        self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.vsb.set)
+
+        # Layout
+        self.tree.grid(row=0, column=0, sticky='nsew')
+        self.vsb.grid(row=0, column=1, sticky='ns')
 
         # Initialize the counter
         self.message_number = 0
@@ -329,8 +336,22 @@ def _run_log(q: Queue):
     :param q: multiprocessing Queue object for message queue
     :return: None
     """
+    parent = Tkinter.Tk()
+    parent.title("FT260 I2C")
+    config = Tkinter.Frame(parent)
+    config.grid_rowconfigure(0, weight=1)
+    config.grid_columnconfigure(0, weight=1)
+    labelClock = Tkinter.Label(config, text="Clock rate:")
+    labelAddress = Tkinter.Label(config, text="I2C slave device address:")
+    entryClock = Tkinter.Entry(config)
+    entryAddress = Tkinter.Entry(config)
+    labelClock.grid(row=0, column=0)
+    entryClock.grid(row=0, column=1)
+    labelAddress.grid(row=1, column=0)
+    entryAddress.grid(row=1, column=1)
+    config.pack(fill = "x")
 
-    comm_log = _CommLog(q)
+    comm_log = _CommLog(q, parent)
     comm_log.run()
 
 def I2Clog(enable = False):
