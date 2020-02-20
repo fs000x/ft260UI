@@ -12,29 +12,6 @@ FT260_Pid = 0x6030
 config = None
 
 
-def alert_popup(title, message):
-    """Generate a pop-up window for special messages."""
-    root = tk.Tk()
-    root.title(title)
-
-    w = 400  # popup window width
-    h = 200  # popup window height
-
-    sw = root.winfo_screenwidth()
-    sh = root.winfo_screenheight()
-
-    x = (sw - w) / 2
-    y = (sh - h) / 2
-    root.geometry('%dx%d+%d+%d' % (w, h, x, y))
-
-    m = message
-    w = tk.Label(root, text=m, width=120, height=10)
-    w.pack()
-    b = tk.Button(root, text="OK", command=root.destroy, width=10)
-    b.pack()
-    tk.mainloop()
-
-
 class _ConfigFrame(tk.Frame):
     @property
     def clock(self):
@@ -54,19 +31,53 @@ class _ConfigFrame(tk.Frame):
         self.entry_address.delete(0, tk.END)
         self.entry_address.insert(0, new_value)
 
+    def open(self):
+        ft.open_ftlib()
+        if self.i2c_handle is not None:
+            return
+
+        if not ft.find_device_in_paths(FT260_Vid, FT260_Pid):
+            self.entry_message.delete(0, tk.END)
+            self.entry_message.insert(0, """No FT260 Device found. Was looking USB devices by VID/PID combination and didn't find any. 
+            Did you forget to connect FT260 chip to USB?
+            Did you install the driver?
+            Do you see FT260 in device list?""")
+
+        self.i2c_handle = ft.openFtAsI2c(FT260_Vid, FT260_Pid, int(self.clock))
+
+        if not self.i2c_handle:
+            self.entry_message.delete(0, tk.END)
+            self.entry_message.insert(0, "Open I2C error. Was opening FT260 in I2C mode and failed.")
+
+    def close(self):
+        if self.i2c_handle is not None:
+            ft.close_device(self.i2c_handle)
+            self.i2c_handle = None
+
+    def __del__(self):
+        self.close()
+
     def __init__(self, parent):
         self.parent = parent
         self.i2c_handle = None
         super().__init__(self.parent)
-        self.config(pady=3)
+        self.config(pady=5)
+        self.grid_columnconfigure(4, weight=1)
         label_clock = tk.Label(self, text="Clock rate [kbps]:")
         label_address = tk.Label(self, text="I2C slave device address [hex]:")
         self.entry_clock = tk.Entry(self, width=6)
         self.entry_address = tk.Entry(self, width=6)
+        self.button_open = tk.Button(self, text="Open device", command=self.open)
+        self.button_close = tk.Button(self, text="Close device", command=self.close)
+        self.entry_message = tk.Entry(self)
+
         label_clock.grid(row=0, column=0)
         self.entry_clock.grid(row=0, column=1)
         label_address.grid(row=1, column=0)
         self.entry_address.grid(row=1, column=1)
+        self.button_open.grid(row=0, column=2, padx = (3,0))
+        self.button_close.grid(row=0, column=3)
+        self.entry_message.grid(row=0, column=4, rowspan = 2, sticky = "nsew", padx=3)
 
 
 class _DeviceScannerFrame(tk.Frame):
@@ -85,7 +96,7 @@ class _DeviceScannerFrame(tk.Frame):
     def __init__(self, parent):
         self.parent = parent
         super().__init__(self.parent)
-        self.config(pady=3)
+        self.config(pady=5)
         self.grid_columnconfigure(2, weight=1)
 
         button_scan = tk.Button(self, text="Scan I2C bus", command=self.scan_button)
@@ -187,7 +198,7 @@ class _RegFrame(tk.Frame):
     def __init__(self, parent):
         self.parent = parent
         super().__init__(self.parent)
-        self.config(pady=3)
+        self.config(pady=5)
         label_reg_bits = tk.Label(self, text="Register address size:")
         self.combo_reg_bits = ttk.Combobox(self, values=["8 bits", "16 bits"], width=6)
         self.combo_reg_bits.current(0)
@@ -295,7 +306,7 @@ class _DataFrame(tk.Frame):
     def __init__(self, parent):
         self.parent = parent
         super().__init__(self.parent)
-        self.config(pady=3)
+        self.config(pady=5)
         self.grid_columnconfigure(5, weight=1)
 
         label_data_size = tk.Label(self, text="Data length:")
@@ -395,25 +406,12 @@ class _CommLog(tk.Frame):
 def main():
     global config
 
-    if not ft.findDeviceInPaths(FT260_Vid, FT260_Pid):
-        alert_popup("No FT260 Device found", """Was looking USB devices by VID/PID combination and didn't find any. 
-        Did you forget to connect FT260 chip to USB?
-        Did you install the driver?
-        Do you see FT260 in device list?""")
-        exit()
-
-    i2c_handle = ft.openFtAsI2c(FT260_Vid, FT260_Pid, 100)
-    if not i2c_handle:
-        alert_popup("Open I2C error", "Was opening FT260 in I2C mode and failed.")
-        exit()
-
     parent = tk.Tk()
     parent.title("FT260 I2C")
     config = _ConfigFrame(parent)
     config.clock = "100"
     config.slave_address = "0x68"
-    config.i2c_handle = i2c_handle
-    config.pack(fill="x")
+    config.pack(fill="x", expand = True)
     separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
     separator.pack(fill="x")
     scanner = _DeviceScannerFrame(parent)
@@ -434,7 +432,6 @@ def main():
     comm_log.pack(fill="both", expand=True)
     comm_log.run()
     parent.mainloop()
-    ftClose(i2c_handle)
 
 
 if __name__ == "__main__":

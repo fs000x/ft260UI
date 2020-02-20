@@ -2,29 +2,44 @@ from ft_function import *
 import struct
 
 _log_queue = None
+_ftlib = None
 
-def findDeviceInPaths(Vid, Pid):
+
+def open_ftlib():
+    global _ftlib
+    if _ftlib is None:
+        _ftlib = FTlib("lib/LibFT260.dll")
+
+
+def close_device(i2c_handle):
+    if _ftlib is not None:
+        _ftlib.ftClose(i2c_handle)
+
+
+def find_device_in_paths(vid, pid):
+    if _ftlib is None:
+        return None
     # Preparing paths list
-    devNum = c_ulong(0)
-    pathBuf = c_wchar_p('/0'*128)
-    sOpenDeviceName = u"vid_{0:04x}&pid_{1:04x}".format(Vid, Pid)
-    print("Searching for {} in paths".format(sOpenDeviceName))
+    dev_num = c_ulong(0)
+    path_buf = c_wchar_p('/0'*128)
+    s_open_device_name = u"vid_{0:04x}&pid_{1:04x}".format(vid, pid)
+    print("Searching for {} in paths".format(s_open_device_name))
     ret = False
-    ftCreateDeviceList(byref(devNum))
+    _ftlib.ftCreateDeviceList(byref(dev_num))
 
     # For each path check that search string is within and list them
-    valid_devices=list()
-    for i in range(devNum.value):
-        ftGetDevicePath(pathBuf, 128, i)
-        if pathBuf.value.find(sOpenDeviceName) > 0:
+    valid_devices = list()
+    for i in range(dev_num.value):
+        _ftlib.ftGetDevicePath(path_buf, 128, i)
+        if path_buf.value.find(s_open_device_name) > 0:
             ret = True
-            valid_devices.append(pathBuf.value)
-        print("Index:%d\r\nPath:%s\r\n\r\n" % (i, pathBuf.value))
+            valid_devices.append(path_buf.value)
+        print("Index:%d\r\nPath:%s\r\n\r\n" % (i, path_buf.value))
 
     # For each valid device try to use the composite device (with &mi_00)
-    sOpenDeviceName += "&mi_00"
+    s_open_device_name += "&mi_00"
     for i in range(len(valid_devices)):
-        if pathBuf.value.find(sOpenDeviceName) > 0:
+        if path_buf.value.find(s_open_device_name) > 0:
             print("Composite FT260 device found on path {}\r\n".format(valid_devices[i]))
         else:
             print("Not composite FT260 device found on path {}\r\n".format(valid_devices[i]))
@@ -41,27 +56,29 @@ def openFtAsI2c(Vid, Pid, cfgRate):
     also possible.
     :return: handle for opened device. Handle must be stored for future use.
     """
+    if _ftlib is None:
+        return None
     handle = c_void_p()
 
     # mode 0 is I2C, mode 1 is UART
     # Opening first device of possibly many available is used by providing indev 0 as third parameter.
-    ftStatus = ftOpenByVidPid(Vid, Pid, 0, byref(handle))
+    ftStatus = _ftlib.ftOpenByVidPid(Vid, Pid, 0, byref(handle))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
         print("Open device OK")
 
-    ftStatus = ftI2CMaster_Init(handle, cfgRate)
+    ftStatus = _ftlib.ftI2CMaster_Init(handle, cfgRate)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
-        ftClose(handle)
-        ftStatus = ftOpenByVidPid(Vid, Pid, 1, byref(handle))
+        _ftlib.ftClose(handle)
+        ftStatus = _ftlib.ftOpenByVidPid(Vid, Pid, 1, byref(handle))
         if not ftStatus == FT260_STATUS.FT260_OK.value:
             print("ReOpen device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
             return 0
         else:
             print("ReOpen device OK")
-        ftStatus = ftI2CMaster_Init(handle, cfgRate)
+        ftStatus = _ftlib.ftI2CMaster_Init(handle, cfgRate)
         if not ftStatus == FT260_STATUS.FT260_OK.value:
             print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
             return 0
@@ -86,8 +103,10 @@ def ftI2cConfig(handle, cfgRate):
     :param cfgRate: Rate in kbods. Example: 100
     :return: None
     """
-    ftI2CMaster_Reset(handle)
-    ftStatus = ftI2CMaster_Init(handle, cfgRate)
+    if _ftlib is None:
+        return None
+    _ftlib.ftI2CMaster_Reset(handle)
+    ftStatus = _ftlib.ftI2CMaster_Init(handle, cfgRate)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
@@ -98,13 +117,15 @@ def ftI2cConfig(handle, cfgRate):
 def ftI2cWrite(handle, i2cDev, flag, data):
     global _log_queue
 
+    if _ftlib is None:
+        return None
     # Write data
     dwRealAccessData = c_ulong(0)
     status = c_uint8(0)  # To store status after operation
     buffer = create_string_buffer(data)
     buffer_void = cast(buffer, c_void_p)
-    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer_void, len(data), byref(dwRealAccessData))
-    ftI2CMaster_GetStatus(handle, byref(status))
+    ftStatus = _ftlib.ftI2CMaster_Write(handle, i2cDev, flag, buffer_void, len(data), byref(dwRealAccessData))
+    _ftlib.ftI2CMaster_GetStatus(handle, byref(status))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
@@ -134,13 +155,15 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
     """
     global _log_queue
 
+    if _ftlib is None:
+        return None
     dwRealAccessData = c_ulong(0) # Create variable to store received bytes
     status = c_uint8(0) # To store status after operation
     buffer = create_string_buffer(readLen) # Create buffer to hold received data as string
     buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
 
-    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
-    ftI2CMaster_GetStatus(handle, byref(status))
+    ftStatus = _ftlib.ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
+    _ftlib.ftI2CMaster_GetStatus(handle, byref(status))
 
     # Logging block. If enabled, data is valid and there is data
     if _log_queue is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
@@ -158,18 +181,21 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
 
 
 def openFtAsUart(Vid, Pid):
+    if _ftlib is None:
+        return None
+
     ftStatus = c_int(0)
     handle = c_void_p()
 
     # mode 0 is I2C, mode 1 is UART
-    ftStatus = ftOpenByVidPid(Vid, Pid, 1, byref(handle))
+    ftStatus = _ftlib.ftOpenByVidPid(Vid, Pid, 1, byref(handle))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
     else:
         print("Open device OK")
 
-    ftStatus = ftUART_Init(handle)
+    ftStatus = _ftlib.ftUART_Init(handle)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("Uart Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
@@ -177,7 +203,7 @@ def openFtAsUart(Vid, Pid):
         print("Uart Init OK")
 
     # config TX_ACTIVE for UART 485
-    ftStatus = ftSelectGpioAFunction(handle, FT260_GPIOA_Pin.FT260_GPIOA_TX_ACTIVE)
+    ftStatus = _ftlib.ftSelectGpioAFunction(handle, FT260_GPIOA_Pin.FT260_GPIOA_TX_ACTIVE)
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("Uart TX_ACTIVE Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
         return 0
@@ -185,14 +211,14 @@ def openFtAsUart(Vid, Pid):
         print("Uart TX_ACTIVE OK")
 
     # config UART
-    ftUART_SetFlowControl(handle, FT260_UART_Mode.FT260_UART_XON_XOFF_MODE)
+    _ftlib.ftUART_SetFlowControl(handle, FT260_UART_Mode.FT260_UART_XON_XOFF_MODE)
     ulBaudrate = c_ulong(9600)
-    ftUART_SetBaudRate(handle, ulBaudrate)
-    ftUART_SetDataCharacteristics(handle, FT260_Data_Bit.FT260_DATA_BIT_8, FT260_Stop_Bit.FT260_STOP_BITS_1, FT260_Parity.FT260_PARITY_NONE)
-    ftUART_SetBreakOff(handle)
+    _ftlib.ftUART_SetBaudRate(handle, ulBaudrate)
+    _ftlib.ftUART_SetDataCharacteristics(handle, FT260_Data_Bit.FT260_DATA_BIT_8, FT260_Stop_Bit.FT260_STOP_BITS_1, FT260_Parity.FT260_PARITY_NONE)
+    _ftlib.ftUART_SetBreakOff(handle)
 
     uartConfig = UartConfig()
-    ftStatus = ftUART_GetConfig(handle, byref(uartConfig))
+    ftStatus = _ftlib.ftUART_GetConfig(handle, byref(uartConfig))
     if not ftStatus == FT260_STATUS.FT260_OK.value:
         print("UART Get config NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
@@ -202,13 +228,15 @@ def openFtAsUart(Vid, Pid):
 
 
 def ftUartWrite(handle):
+    if _ftlib is None:
+        return None
     # Write data
     while True:
         str = input("> ")
         dwRealAccessData = c_ulong(0)
         bufferData = c_char_p(bytes(str,'utf-8'))
         buffer = cast(bufferData, c_void_p)
-        ftStatus = ftUART_Write(handle, buffer, len(str), len(str), byref(dwRealAccessData))
+        ftStatus = _ftlib.ftUART_Write(handle, buffer, len(str), len(str), byref(dwRealAccessData))
         if not ftStatus == FT260_STATUS.FT260_OK.value:
             print("UART Write NG : %s\r\n" % FT260_STATUS(ftStatus))
         else:
@@ -217,7 +245,8 @@ def ftUartWrite(handle):
 
 
 def ftUartReadLoop(handle):
-    #print("Prepare to read data. Press Enter to continue.\r\n")
+    if _ftlib is None:
+        return None
 
     while True:
         # Read data
@@ -226,12 +255,12 @@ def ftUartReadLoop(handle):
         buffer2Data = c_char_p(b'\0'*200)
         memset(buffer2Data, 0, 200)
         buffer2 = cast(buffer2Data, c_void_p)
-        ftUART_GetQueueStatus(handle, byref(dwAvailableData))
+        _ftlib.ftUART_GetQueueStatus(handle, byref(dwAvailableData))
         if dwAvailableData.value == 0:
             continue
         print("dwAvailableData : %d\r\n" % dwAvailableData.value)
 
-        ftStatus = ftUART_Read(handle, buffer2, 50, dwAvailableData, byref(dwRealAccessData))
+        ftStatus = _ftlib.ftUART_Read(handle, buffer2, 50, dwAvailableData, byref(dwRealAccessData))
         if not ftStatus == FT260_STATUS.FT260_OK.value:
             print("UART Read NG : %s\r\n" % FT260_STATUS(ftStatus))
         else:
