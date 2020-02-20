@@ -1,20 +1,7 @@
 from ft_function import *
-# Tkinter GUI import
-try:
-    import Tkinter
-    import ttk
-except ImportError:  # Python 3
-    import tkinter as Tkinter
-    import tkinter.ttk as ttk
-
-import time
 import struct
-from multiprocessing import Queue, Process
 
-
-# If log is enabled then the Queue will be initialized
-_logQueue = None
-
+_log_queue = None
 
 def findDeviceInPaths(Vid, Pid):
     # Preparing paths list
@@ -109,6 +96,8 @@ def ftI2cConfig(handle, cfgRate):
 
 
 def ftI2cWrite(handle, i2cDev, flag, data):
+    global _log_queue
+
     # Write data
     dwRealAccessData = c_ulong(0)
     status = c_uint8(0)  # To store status after operation
@@ -120,14 +109,14 @@ def ftI2cWrite(handle, i2cDev, flag, data):
         print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
         # Logging block. If enabled and there is data
-        if _logQueue is not None and dwRealAccessData.value > 0:
+        if _log_queue is not None and dwRealAccessData.value > 0:
             unpackstr = "<" + "B" * dwRealAccessData.value
             writetuple = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
             msg =""
             for i in writetuple:
                 msg += hex(i) + " "
-            if not _logQueue.full():
-                _logQueue.put(['Write', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
+            if not _log_queue.full():
+                _log_queue.put(['Write', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
             else:
                 raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
@@ -143,6 +132,8 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
     :param readLen:
     :return:
     """
+    global _log_queue
+
     dwRealAccessData = c_ulong(0) # Create variable to store received bytes
     status = c_uint8(0) # To store status after operation
     buffer = create_string_buffer(readLen) # Create buffer to hold received data as string
@@ -152,14 +143,14 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
     ftI2CMaster_GetStatus(handle, byref(status))
 
     # Logging block. If enabled, data is valid and there is data
-    if _logQueue is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
+    if _log_queue is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
         unpackstr = "<" + "B" * dwRealAccessData.value
         readtuple = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
         msg = ""
         for i in readtuple:
             msg += hex(i) + " "
-        if not _logQueue.full():
-            _logQueue.put(['Read', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
+        if not _log_queue.full():
+            _log_queue.put(['Read', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
         else:
             raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
@@ -248,212 +239,3 @@ def ftUartReadLoop(handle):
             print("Read bytes : %d\r\n" % dwRealAccessData.value)
             if dwAvailableData.value > 0:
                 print("buffer : %s\r\n" % buffer2Data.value.decode("utf-8"))
-
-
-class _ConfigFrame(Tkinter.Frame):
-    def __init__(self, parent):
-        self.parent = parent
-        super().__init__(self.parent)
-        self.config(pady = 3)
-        labelClock = Tkinter.Label(self, text="Clock rate [kbps]:")
-        labelAddress = Tkinter.Label(self, text="I2C slave device address [hex]:")
-        entryClock = Tkinter.Entry(self, width = 6)
-        entryAddress = Tkinter.Entry(self, width = 6)
-        labelClock.grid(row=0, column=0)
-        entryClock.grid(row=0, column=1)
-        labelAddress.grid(row=1, column=0)
-        entryAddress.grid(row=1, column=1)
-
-class _RegFrame(Tkinter.Frame):
-    def write_button(self):
-        pass
-
-    def read_button(self):
-        pass
-
-    def __init__(self, parent):
-        self.parent = parent
-        super().__init__(self.parent)
-        self.config(pady = 3)
-        strRegBits = "Register address size:"
-        labelRegBits = Tkinter.Label(self, text=strRegBits)
-        comboRegBits = ttk.Combobox(self, values=["8 bits", "16 bits"], width = 6)
-        comboRegBits.current(0)
-        strAddress = "Register address:"
-        labelAddress = Tkinter.Label(self, text=strAddress)
-        entryAddress = Tkinter.Entry(self, width = 6)
-        strValueBits = "Register value size:"
-        labelValueBits = Tkinter.Label(self, text=strValueBits)
-        comboValueBits = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
-        comboValueBits.current(0)
-        strValue = "Register value:"
-        labelValue = Tkinter.Label(self, text=strValue)
-        entryValue = Tkinter.Entry(self, width = 10)
-        buttonWrite = Tkinter.Button(self, text="Write", command=self.write_button)
-        buttonRead = Tkinter.Button(self, text="Read", command=self.read_button)
-
-        labelRegBits.grid(row=0, column=0, padx=(3, 0))
-        comboRegBits.grid(row=0, column=1)
-        labelAddress.grid(row=0, column=2, padx=(3, 0))
-        entryAddress.grid(row=0, column=3)
-        labelValueBits.grid(row=0, column=4, padx=(3, 0))
-        comboValueBits.grid(row=0, column=5)
-        labelValue.grid(row=0, column=6, padx=(3, 0))
-        entryValue.grid(row=0, column=7)
-        buttonWrite.grid(row=0, column=8)
-        buttonRead.grid(row=0, column=9)
-
-class _DataFrame(Tkinter.Frame):
-    def write_button(self):
-        pass
-
-    def read_button(self):
-        pass
-
-    def __init__(self, parent):
-        self.parent = parent
-        super().__init__(self.parent)
-        self.config(pady = 3)
-        self.grid_columnconfigure(5, weight=1)
-        label_data_size = Tkinter.Label(self, text="Data length:")
-        entry_data_size = Tkinter.Entry(self, width = 6)
-        label_word_size = Tkinter.Label(self, text="Data word size:")
-        combo_word_size = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
-        combo_word_size.current(0)
-        label_data = Tkinter.Label(self, text="Data [hex]:")
-        entry_data = Tkinter.Entry(self, width = 30)
-        buttonWrite = Tkinter.Button(self, text="Write", command=self.write_button)
-        buttonRead = Tkinter.Button(self, text="Read", command=self.read_button)
-
-        label_data_size.grid(row=0, column=0, padx=(3, 0))
-        entry_data_size.grid(row=0, column=1)
-        label_word_size.grid(row=0, column=2, padx=(3, 0))
-        combo_word_size.grid(row=0, column=3)
-        label_data.grid(row=0, column=4, padx=(3, 0))
-        entry_data.grid(row=0, column=5, sticky = "we")
-        buttonWrite.grid(row=0, column=6)
-        buttonRead.grid(row=0, column=7)
-
-
-class _CommLog(Tkinter.Frame):
-    """
-    Communication log for USB-I2C messages
-    """
-
-    def __init__(self, q: Queue, parent = None):
-        """
-        Constructor
-        """
-        if parent is None:
-            self.parent = Tkinter.Tk()
-            self.parent.title("Communication log")
-            self.parent.config(background="lavender")
-        else:
-            self.parent = parent
-
-        self.q = q
-        super().__init__(self.parent)
-        self.pack(fill = "both", expand = True)
-
-        # Inside frame grid config
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-
-        # Set the treeview
-        self.tree = ttk.Treeview(self, columns=('Timestamp', 'Direction', 'Address', 'Message', 'Mode', 'Status'))
-        self.tree.heading('#0', text='#')
-        self.tree.heading('#1', text='Timestamp')
-        self.tree.heading('#2', text='Direction')
-        self.tree.heading('#3', text='Address')
-        self.tree.heading('#4', text='Message')
-        self.tree.heading('#5', text='Mode')
-        self.tree.heading('#6', text='Status')
-        self.tree.column('#0', minwidth=40, width=40, stretch=Tkinter.YES)
-        self.tree.column('#1', minwidth=130, width=130, stretch=Tkinter.YES)
-        self.tree.column('#2', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#3', minwidth=70, width=70, stretch=Tkinter.YES)
-        self.tree.column('#4', minwidth=130, width=130, stretch=Tkinter.YES)
-        self.tree.column('#5', minwidth=90, width=90, stretch=Tkinter.YES)
-        self.tree.column('#6', minwidth=50, width=50, stretch=Tkinter.YES)
-
-        # Scrollbar
-        self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=self.vsb.set)
-
-        # Layout
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        self.vsb.grid(row=0, column=1, sticky='ns')
-
-        # Initialize the counter
-        self.message_number = 0
-
-    def run(self):
-        # Ask Tkinter to run message check in 100 ms
-        self.parent.after(100,self.check_messages_and_show)
-        self.parent.mainloop()
-
-    def check_messages_and_show(self):
-        """
-        Check for messages in queue and add them all to treeview if there are any
-        """
-        # Start by asking Tkinter to run this check in next 100 ms, making check loop
-        self.parent.after(100, self.check_messages_and_show)
-        # While there are messages - process them
-        item = None
-        while not self.q.empty():
-            next_in_queue = self.q.get()
-            # Check for killbomb
-            if next_in_queue is None:
-                self.parent.quit()
-                break
-            v=list()
-            v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
-            v.extend(next_in_queue)
-            item = self.tree.insert('', 'end', text=str(self.message_number), values=v)
-            self.message_number += 1
-        if item is not None:
-            self.tree.see(item)
-
-def _run_log(q: Queue):
-    """
-    Creates Tkinter log window for all transactions in separate process.
-    Process can be terminated with killbomb, sending None in message queue.
-    :param q: multiprocessing Queue object for message queue
-    :return: None
-    """
-    parent = Tkinter.Tk()
-    parent.title("FT260 I2C")
-    config = _ConfigFrame(parent)
-    config.pack(fill = "x")
-    separator = ttk.Separator(parent, orient=Tkinter.HORIZONTAL)
-    separator.pack(fill="x")
-    reg = _RegFrame(parent)
-    reg.pack(fill="x")
-    separator = ttk.Separator(parent, orient=Tkinter.HORIZONTAL)
-    separator.pack(fill="x")
-    data = _DataFrame(parent)
-    data.pack(fill="x")
-    comm_log = _CommLog(q, parent)
-    comm_log.run()
-
-def I2Clog(enable = False):
-    """
-    Creates or destroys log window existing in separate process. Uses multiprocessing, so you must call disabling
-    of this log before interrupting main process.
-    :param enable: If True the log is created. If False - destroyed.
-    :return: None
-    """
-    global _logQueue
-    if enable is True:
-        if _logQueue is not None:
-            raise Exception("Try do create log, but seems it is active already.")
-        else:
-            _logQueue = Queue()
-            process_comm_log = Process(target=_run_log, args=[_logQueue, ])
-            process_comm_log.start()
-    else:
-        if _logQueue is None:
-            raise Exception("Try do disable log, but seems it is not active.")
-        else:
-            _logQueue.put(None)
-            _logQueue = None
