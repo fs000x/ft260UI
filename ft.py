@@ -250,6 +250,91 @@ def ftUartReadLoop(handle):
                 print("buffer : %s\r\n" % buffer2Data.value.decode("utf-8"))
 
 
+class _ConfigFrame(Tkinter.Frame):
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(self.parent)
+        self.config(pady = 3)
+        labelClock = Tkinter.Label(self, text="Clock rate [kbps]:")
+        labelAddress = Tkinter.Label(self, text="I2C slave device address [hex]:")
+        entryClock = Tkinter.Entry(self, width = 6)
+        entryAddress = Tkinter.Entry(self, width = 6)
+        labelClock.grid(row=0, column=0)
+        entryClock.grid(row=0, column=1)
+        labelAddress.grid(row=1, column=0)
+        entryAddress.grid(row=1, column=1)
+
+class _RegFrame(Tkinter.Frame):
+    def write_button(self):
+        pass
+
+    def read_button(self):
+        pass
+
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(self.parent)
+        self.config(pady = 3)
+        strRegBits = "Register address size:"
+        labelRegBits = Tkinter.Label(self, text=strRegBits)
+        comboRegBits = ttk.Combobox(self, values=["8 bits", "16 bits"], width = 6)
+        comboRegBits.current(0)
+        strAddress = "Register address:"
+        labelAddress = Tkinter.Label(self, text=strAddress)
+        entryAddress = Tkinter.Entry(self, width = 6)
+        strValueBits = "Register value size:"
+        labelValueBits = Tkinter.Label(self, text=strValueBits)
+        comboValueBits = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
+        comboValueBits.current(0)
+        strValue = "Register value:"
+        labelValue = Tkinter.Label(self, text=strValue)
+        entryValue = Tkinter.Entry(self, width = 10)
+        buttonWrite = Tkinter.Button(self, text="Write", command=self.write_button)
+        buttonRead = Tkinter.Button(self, text="Read", command=self.read_button)
+
+        labelRegBits.grid(row=0, column=0, padx=(3, 0))
+        comboRegBits.grid(row=0, column=1)
+        labelAddress.grid(row=0, column=2, padx=(3, 0))
+        entryAddress.grid(row=0, column=3)
+        labelValueBits.grid(row=0, column=4, padx=(3, 0))
+        comboValueBits.grid(row=0, column=5)
+        labelValue.grid(row=0, column=6, padx=(3, 0))
+        entryValue.grid(row=0, column=7)
+        buttonWrite.grid(row=0, column=8)
+        buttonRead.grid(row=0, column=9)
+
+class _DataFrame(Tkinter.Frame):
+    def write_button(self):
+        pass
+
+    def read_button(self):
+        pass
+
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(self.parent)
+        self.config(pady = 3)
+        self.grid_columnconfigure(5, weight=1)
+        label_data_size = Tkinter.Label(self, text="Data length:")
+        entry_data_size = Tkinter.Entry(self, width = 6)
+        label_word_size = Tkinter.Label(self, text="Data word size:")
+        combo_word_size = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
+        combo_word_size.current(0)
+        label_data = Tkinter.Label(self, text="Data [hex]:")
+        entry_data = Tkinter.Entry(self, width = 30)
+        buttonWrite = Tkinter.Button(self, text="Write", command=self.write_button)
+        buttonRead = Tkinter.Button(self, text="Read", command=self.read_button)
+
+        label_data_size.grid(row=0, column=0, padx=(3, 0))
+        entry_data_size.grid(row=0, column=1)
+        label_word_size.grid(row=0, column=2, padx=(3, 0))
+        combo_word_size.grid(row=0, column=3)
+        label_data.grid(row=0, column=4, padx=(3, 0))
+        entry_data.grid(row=0, column=5, sticky = "we")
+        buttonWrite.grid(row=0, column=6)
+        buttonRead.grid(row=0, column=7)
+
+
 class _CommLog(Tkinter.Frame):
     """
     Communication log for USB-I2C messages
@@ -338,19 +423,16 @@ def _run_log(q: Queue):
     """
     parent = Tkinter.Tk()
     parent.title("FT260 I2C")
-    config = Tkinter.Frame(parent)
-    config.grid_rowconfigure(0, weight=1)
-    config.grid_columnconfigure(0, weight=1)
-    labelClock = Tkinter.Label(config, text="Clock rate:")
-    labelAddress = Tkinter.Label(config, text="I2C slave device address:")
-    entryClock = Tkinter.Entry(config)
-    entryAddress = Tkinter.Entry(config)
-    labelClock.grid(row=0, column=0)
-    entryClock.grid(row=0, column=1)
-    labelAddress.grid(row=1, column=0)
-    entryAddress.grid(row=1, column=1)
+    config = _ConfigFrame(parent)
     config.pack(fill = "x")
-
+    separator = ttk.Separator(parent, orient=Tkinter.HORIZONTAL)
+    separator.pack(fill="x")
+    reg = _RegFrame(parent)
+    reg.pack(fill="x")
+    separator = ttk.Separator(parent, orient=Tkinter.HORIZONTAL)
+    separator.pack(fill="x")
+    data = _DataFrame(parent)
+    data.pack(fill="x")
     comm_log = _CommLog(q, parent)
     comm_log.run()
 
