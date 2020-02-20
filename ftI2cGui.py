@@ -76,9 +76,9 @@ class _DeviceScannerFrame(tk.Frame):
         self.entry_addresses.delete(0, tk.END)
         for address in range(1, 127):
             (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
-                                                                  address,
-                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                                  1)
+                                                                             address,
+                                                                             FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                             1)
             if not (status & FT260_I2C_STATUS_SLAVE_NACK):
                 self.entry_addresses.insert(tk.END, hex(address) + " ")
 
@@ -94,7 +94,7 @@ class _DeviceScannerFrame(tk.Frame):
 
         button_scan.grid(row=0, column=0)
         label_scan_result.grid(row=0, column=1, padx=(3, 0))
-        self.entry_addresses.grid(row=0, column=2, sticky = "ew")
+        self.entry_addresses.grid(row=0, column=2, sticky="ew")
 
 
 class _RegFrame(tk.Frame):
@@ -117,9 +117,9 @@ class _RegFrame(tk.Frame):
                       struct.pack("".join(packstr), reg_addr))
         # Register address is send. Can now retrieve register data
         (ft_status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
-                                                              dev_addr,
-                                                              FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                              self.register_size)
+                                                                 dev_addr,
+                                                                 FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                 self.register_size)
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len, len(readData)))
         elif not ft_status == FT260_STATUS.FT260_OK.value:
@@ -256,10 +256,10 @@ class _DataFrame(tk.Frame):
                 packstr += self.word_symbol[self.data_word]
 
         (ft_status, data_real_read_len, readData) = ft.ftI2cWrite(config.i2c_handle,
-                                                               int(config.slave_address, 16),
-                                                               FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                               struct.pack("".join(packstr), *words)
-                                                               )
+                                                                  int(config.slave_address, 16),
+                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                  struct.pack("".join(packstr), *words)
+                                                                  )
         # Error checking
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
@@ -275,9 +275,9 @@ class _DataFrame(tk.Frame):
 
     def read_button(self):
         (ft_status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
-                                                              int(config.slave_address, 16),
-                                                              FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                              int(self.data_size) * self.data_word)
+                                                                 int(config.slave_address, 16),
+                                                                 FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                 int(self.data_size) * self.data_word)
 
         # Error checking
         if data_real_read_len != len(readData):
