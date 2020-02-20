@@ -69,6 +69,34 @@ class _ConfigFrame(tk.Frame):
         self.entry_address.grid(row=1, column=1)
 
 
+class _DeviceScannerFrame(tk.Frame):
+    global config
+
+    def scan_button(self):
+        self.entry_addresses.delete(0, tk.END)
+        for address in range(1, 127):
+            (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
+                                                                  address,
+                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                  1)
+            if not (status & FT260_I2C_STATUS_SLAVE_NACK):
+                self.entry_addresses.insert(tk.END, hex(address) + " ")
+
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(self.parent)
+        self.config(pady=3)
+        self.grid_columnconfigure(2, weight=1)
+
+        button_scan = tk.Button(self, text="Scan I2C bus", command=self.scan_button)
+        label_scan_result = tk.Label(self, text="Found addresses:")
+        self.entry_addresses = tk.Entry(self, width=30)
+
+        button_scan.grid(row=0, column=0)
+        label_scan_result.grid(row=0, column=1, padx=(3, 0))
+        self.entry_addresses.grid(row=0, column=2, sticky = "ew")
+
+
 class _RegFrame(tk.Frame):
     global config
 
@@ -88,14 +116,14 @@ class _RegFrame(tk.Frame):
                       FT260_I2C_FLAG.FT260_I2C_START,
                       struct.pack("".join(packstr), reg_addr))
         # Register address is send. Can now retrieve register data
-        (status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
+        (ft_status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
                                                               dev_addr,
                                                               FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                               self.register_size)
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len, len(readData)))
-        elif not status == FT260_STATUS.FT260_OK.value:
-            print("Read error : %s\r\n" % status)
+        elif not ft_status == FT260_STATUS.FT260_OK.value:
+            print("Read error : %s\r\n" % ft_status)
         if not len(readData) == 0:
             self.register_value = "%#x" % struct.unpack("".join(unpackstr), readData)
 
@@ -227,7 +255,7 @@ class _DataFrame(tk.Frame):
                 words.append(int(hex_word, 16))
                 packstr += self.word_symbol[self.data_word]
 
-        (status, data_real_read_len, readData) = ft.ftI2cWrite(config.i2c_handle,
+        (ft_status, data_real_read_len, readData) = ft.ftI2cWrite(config.i2c_handle,
                                                                int(config.slave_address, 16),
                                                                FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                                struct.pack("".join(packstr), *words)
@@ -236,8 +264,8 @@ class _DataFrame(tk.Frame):
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
                                                                                     len(readData)))
-        elif not status == FT260_STATUS.FT260_OK.value:
-            print("Read error : %s\r\n" % status)
+        elif not ft_status == FT260_STATUS.FT260_OK.value:
+            print("Read error : %s\r\n" % ft_status)
 
         update_str = ""
         unpackstr = "<" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
@@ -246,7 +274,7 @@ class _DataFrame(tk.Frame):
         self.data = update_str
 
     def read_button(self):
-        (status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
+        (ft_status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
                                                               int(config.slave_address, 16),
                                                               FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                               int(self.data_size) * self.data_word)
@@ -255,8 +283,8 @@ class _DataFrame(tk.Frame):
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
                                                                                     len(readData)))
-        elif not status == FT260_STATUS.FT260_OK.value:
-            print("Read error : %s\r\n" % status)
+        elif not ft_status == FT260_STATUS.FT260_OK.value:
+            print("Read error : %s\r\n" % ft_status)
 
         unpackstr = "<" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
         update_str = ""
@@ -386,6 +414,10 @@ def main():
     config.slave_address = "0x68"
     config.i2c_handle = i2c_handle
     config.pack(fill="x")
+    separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
+    separator.pack(fill="x")
+    scanner = _DeviceScannerFrame(parent)
+    scanner.pack(fill="x")
     separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
     separator.pack(fill="x")
     reg = _RegFrame(parent)

@@ -120,7 +120,7 @@ def ftI2cWrite(handle, i2cDev, flag, data):
             else:
                 raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
-    return ftStatus, dwRealAccessData.value, buffer.raw
+    return ftStatus, dwRealAccessData.value, buffer.raw, status.value
 
 
 def ftI2cRead(handle, i2cDev, flag, readLen):
@@ -154,7 +154,7 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
         else:
             raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
-    return ftStatus, dwRealAccessData.value, buffer.raw
+    return ftStatus, dwRealAccessData.value, buffer.raw, status.value
 
 
 def openFtAsUart(Vid, Pid):
