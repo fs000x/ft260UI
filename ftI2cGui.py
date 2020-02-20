@@ -240,7 +240,7 @@ class _DataFrame(tk.Frame):
             print("Read error : %s\r\n" % status)
 
         update_str = ""
-        unpackstr = "<" + self.word_symbol[self.data_word] * int (len(readData) / self.data_word)
+        unpackstr = "<" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
         for i in struct.unpack(unpackstr, readData):
             update_str = update_str + " " + hex(i)
         self.data = update_str
@@ -258,7 +258,7 @@ class _DataFrame(tk.Frame):
         elif not status == FT260_STATUS.FT260_OK.value:
             print("Read error : %s\r\n" % status)
 
-        unpackstr = "<" + self.word_symbol[self.data_word] * int (len(readData) / self.data_word)
+        unpackstr = "<" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
         update_str = ""
         for i in struct.unpack(unpackstr, readData):
             update_str = update_str + hex(i) + " "
