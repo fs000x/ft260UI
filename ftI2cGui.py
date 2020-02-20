@@ -137,21 +137,21 @@ class _RegFrame(tk.Frame):
     @property
     def register_address_size(self):
         size = self.combo_reg_bits.get()
-        if (size == "8 bits"):
+        if size == "8 bits":
             return 1
-        elif (size == "16 bits"):
+        elif size == "16 bits":
             return 2
         else:
             raise Exception("Unknown option {} in register_address_size combobox.".format(bytes))
 
     @property
     def register_size(self):
-        bytes = self.combo_value_bits.get()
-        if (bytes == "8 bits"):
+        size = self.combo_value_bits.get()
+        if size == "8 bits":
             return 1
-        elif (bytes == "16 bits"):
+        elif size == "16 bits":
             return 2
-        elif (bytes == "32 bits"):
+        elif size == "32 bits":
             return 4
         else:
             raise Exception("Unknown option {} in register_size combobox.".format(bytes))
@@ -206,20 +206,32 @@ class _DataFrame(tk.Frame):
         self.entry_data.delete(0, tk.END)
         self.entry_data.insert(0, new_value)
 
+    @property
+    def data_word(self):
+        size = self.combo_word_size.get()
+        if size == "8 bits":
+            return 1
+        elif size == "16 bits":
+            return 2
+        elif size == "32 bits":
+            return 4
+        else:
+            raise Exception("Unknown option {} in data_word combobox.".format(bytes))
+
     def write_button(self):
-        updateStr = ""
-        data_to_write = value["data"].split(' ')
-        packstr = ['>']
-        for i in range(0, len(data_to_write)):
-            packstr.append('B')
+        data_to_write = self.data.split(' ')
+        words = []
+        packstr = '>'
+        for hex_word in data_to_write:
+            if hex_word != "":
+                words.append(int(hex_word, 16))
+                packstr += self.word_symbol[self.data_word]
 
         (status, data_real_read_len, readData) = ft.ftI2cWrite(config.i2c_handle,
-                                                               int(value["slaveAddr"], 16),
+                                                               int(config.slave_address, 16),
                                                                FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                               struct.pack("".join(packstr), int(value['reg'], 16),
-                                                                           int(value['regValue'], 16))
+                                                               struct.pack("".join(packstr), *words)
                                                                )
-
         # Error checking
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
@@ -227,17 +239,17 @@ class _DataFrame(tk.Frame):
         elif not status == FT260_STATUS.FT260_OK.value:
             print("Read error : %s\r\n" % status)
 
-        unpackstr = "<" + "B" * len(readData)
+        update_str = ""
+        unpackstr = "<" + self.word_symbol[self.data_word] * int (len(readData) / self.data_word)
         for i in struct.unpack(unpackstr, readData):
-            updateStr = updateStr + " " + hex(i)
-        self.data=updateStr
+            update_str = update_str + " " + hex(i)
+        self.data = update_str
 
     def read_button(self):
-        updateStr = ""
         (status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
                                                               int(config.slave_address, 16),
                                                               FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                              int(self.data_size))
+                                                              int(self.data_size) * self.data_word)
 
         # Error checking
         if data_real_read_len != len(readData):
@@ -246,21 +258,23 @@ class _DataFrame(tk.Frame):
         elif not status == FT260_STATUS.FT260_OK.value:
             print("Read error : %s\r\n" % status)
 
-        unpackstr = "<" + "B" * len(readData)
+        unpackstr = "<" + self.word_symbol[self.data_word] * int (len(readData) / self.data_word)
+        update_str = ""
         for i in struct.unpack(unpackstr, readData):
-            updateStr = updateStr + " " + hex(i)
-        self.data = updateStr
+            update_str = update_str + hex(i) + " "
+        self.data = update_str
 
     def __init__(self, parent):
         self.parent = parent
         super().__init__(self.parent)
         self.config(pady=3)
         self.grid_columnconfigure(5, weight=1)
+
         label_data_size = tk.Label(self, text="Data length:")
         self.entry_data_size = tk.Entry(self, width=6)
         label_word_size = tk.Label(self, text="Data word size:")
-        combo_word_size = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
-        combo_word_size.current(0)
+        self.combo_word_size = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
+        self.combo_word_size.current(0)
         label_data = tk.Label(self, text="Data [hex]:")
         self.entry_data = tk.Entry(self, width=30)
         button_write = tk.Button(self, text="Write", command=self.write_button)
@@ -269,11 +283,13 @@ class _DataFrame(tk.Frame):
         label_data_size.grid(row=0, column=0, padx=(3, 0))
         self.entry_data_size.grid(row=0, column=1)
         label_word_size.grid(row=0, column=2, padx=(3, 0))
-        combo_word_size.grid(row=0, column=3)
+        self.combo_word_size.grid(row=0, column=3)
         label_data.grid(row=0, column=4, padx=(3, 0))
         self.entry_data.grid(row=0, column=5, sticky="we")
         button_write.grid(row=0, column=6)
         button_read.grid(row=0, column=7)
+
+        self.word_symbol = {1: "B", 2: "H", 4: "I"}
 
 
 class _CommLog(tk.Frame):
@@ -378,7 +394,7 @@ def main():
     separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
     separator.pack(fill="x")
     data = _DataFrame(parent)
-    data.data_size=1
+    data.data_size = 1
     data.pack(fill="x")
     q = Queue()
     ft._log_queue = q
