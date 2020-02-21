@@ -6,6 +6,7 @@ from multiprocessing import Queue
 
 import tkinter as tk
 import tkinter.ttk as ttk
+import tkinter.scrolledtext as tkst
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
@@ -35,27 +36,27 @@ class _ConfigFrame(tk.Frame):
         ft.open_ftlib()
         if self.i2c_handle is not None:
             raise Exception("Device already opened. Action to open it twice should be disabled.")
-            return
 
         if not ft.find_device_in_paths(FT260_Vid, FT260_Pid):
-            self.entry_message.delete(0, tk.END)
-            self.entry_message.insert(0, """No FT260 Device found. Was looking USB devices by VID/PID combination and didn't find any. 
-            Did you forget to connect FT260 chip to USB?
-            Did you install the driver?
-            Do you see FT260 in device list?""")
+            self.entry_scroll_message.delete("1.0", tk.END)
+            self.entry_scroll_message.insert("1.0", """No FT260 Device found. Was looking USB devices by VID/PID combination and didn't find any. 
+Did you forget to connect FT260 chip to USB?
+Did you install the driver?
+Do you see FT260 in device list?"""
+                                             )
             return
 
         self.i2c_handle = ft.openFtAsI2c(FT260_Vid, FT260_Pid, int(self.clock))
 
         if self.i2c_handle is None:
-            self.entry_message.delete(0, tk.END)
-            self.entry_message.insert(0, "Open I2C error. Was opening FT260 in I2C mode and failed.")
+            self.entry_scroll_message.delete("1.0", tk.END)
+            self.entry_scroll_message.insert("1.0", "Open I2C error. Was opening FT260 in I2C mode and failed.")
             return
 
-        self.button_open.config(state = "disable")
-        self.entry_clock.config(state = "disable")
+        self.button_open.config(state="disable")
+        self.entry_clock.config(state="disable")
         self.button_close.config(state="normal")
-        self.entry_message.delete(0, tk.END)
+        self.entry_scroll_message.delete("1.0", tk.END)
 
     def close(self):
         if self.i2c_handle is not None:
@@ -82,16 +83,16 @@ class _ConfigFrame(tk.Frame):
         self.entry_clock = tk.Entry(self, width=6)
         self.entry_address = tk.Entry(self, width=6)
         self.button_open = tk.Button(self, text="Open device", command=self.open)
-        self.button_close = tk.Button(self, text="Close device", command=self.close, state = "disabled")
-        self.entry_message = tk.Entry(self)
+        self.button_close = tk.Button(self, text="Close device", command=self.close, state="disabled")
+        self.entry_scroll_message = tkst.ScrolledText(self, height="2")
 
-        label_clock.grid(row=0, column=0)
+        label_clock.grid(row=0, column=0, padx=(3, 0))
         self.entry_clock.grid(row=0, column=1)
-        label_address.grid(row=1, column=0)
+        label_address.grid(row=1, column=0, padx=(3, 0))
         self.entry_address.grid(row=1, column=1)
-        self.button_open.grid(row=0, column=2, padx = (3,0))
+        self.button_open.grid(row=0, column=2, padx=(3, 0))
         self.button_close.grid(row=0, column=3)
-        self.entry_message.grid(row=0, column=4, rowspan = 2, sticky = "nsew", padx=3)
+        self.entry_scroll_message.grid(row=0, column=4, rowspan=2, sticky="nsew", padx=5)
 
 
 class _DeviceScannerFrame(tk.Frame):
@@ -142,9 +143,9 @@ class _RegFrame(tk.Frame):
                       struct.pack("".join(packstr), reg_addr))
         # Register address is send. Can now retrieve register data
         (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
-                                                                 dev_addr,
-                                                                 FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                                 self.register_size)
+                                                                         dev_addr,
+                                                                         FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                         self.register_size)
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len, len(readData)))
         elif not ft_status == FT260_STATUS.FT260_OK.value:
@@ -281,10 +282,10 @@ class _DataFrame(tk.Frame):
                 packstr += self.word_symbol[self.data_word]
 
         (ft_status, data_real_read_len, readData, status) = ft.ftI2cWrite(config.i2c_handle,
-                                                                  int(config.slave_address, 16),
-                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                                  struct.pack("".join(packstr), *words)
-                                                                  )
+                                                                          int(config.slave_address, 16),
+                                                                          FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                          struct.pack("".join(packstr), *words)
+                                                                          )
         # Error checking
         if data_real_read_len != len(readData):
             print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
@@ -300,9 +301,9 @@ class _DataFrame(tk.Frame):
 
     def read_button(self):
         (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
-                                                                 int(config.slave_address, 16),
-                                                                 FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                                 int(self.data_size) * self.data_word)
+                                                                         int(config.slave_address, 16),
+                                                                         FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                         int(self.data_size) * self.data_word)
 
         # Error checking
         if data_real_read_len != len(readData):
@@ -425,7 +426,7 @@ def main():
     config = _ConfigFrame(parent)
     config.clock = "100"
     config.slave_address = "0x68"
-    config.pack(fill="x", expand = True)
+    config.pack(fill="x", expand=False)
     separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
     separator.pack(fill="x")
     scanner = _DeviceScannerFrame(parent)
