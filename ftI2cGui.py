@@ -34,6 +34,7 @@ class _ConfigFrame(tk.Frame):
     def open(self):
         ft.open_ftlib()
         if self.i2c_handle is not None:
+            raise Exception("Device already opened. Action to open it twice should be disabled.")
             return
 
         if not ft.find_device_in_paths(FT260_Vid, FT260_Pid):
@@ -42,20 +43,33 @@ class _ConfigFrame(tk.Frame):
             Did you forget to connect FT260 chip to USB?
             Did you install the driver?
             Do you see FT260 in device list?""")
+            return
 
         self.i2c_handle = ft.openFtAsI2c(FT260_Vid, FT260_Pid, int(self.clock))
 
-        if not self.i2c_handle:
+        if self.i2c_handle is None:
             self.entry_message.delete(0, tk.END)
             self.entry_message.insert(0, "Open I2C error. Was opening FT260 in I2C mode and failed.")
+            return
+
+        self.button_open.config(state = "disable")
+        self.entry_clock.config(state = "disable")
+        self.button_close.config(state="normal")
+        self.entry_message.delete(0, tk.END)
 
     def close(self):
         if self.i2c_handle is not None:
             ft.close_device(self.i2c_handle)
             self.i2c_handle = None
+            self.button_open.config(state="normal")
+            self.entry_clock.config(state="normal")
+            self.button_close.config(state="disable")
+        else:
+            raise Exception("Device is not opened. Action to close it twice should be disabled.")
 
     def __del__(self):
-        self.close()
+        if self.i2c_handle is not None:
+            ft.close_device(self.i2c_handle)
 
     def __init__(self, parent):
         self.parent = parent
@@ -68,7 +82,7 @@ class _ConfigFrame(tk.Frame):
         self.entry_clock = tk.Entry(self, width=6)
         self.entry_address = tk.Entry(self, width=6)
         self.button_open = tk.Button(self, text="Open device", command=self.open)
-        self.button_close = tk.Button(self, text="Close device", command=self.close)
+        self.button_close = tk.Button(self, text="Close device", command=self.close, state = "disabled")
         self.entry_message = tk.Entry(self)
 
         label_clock.grid(row=0, column=0)
@@ -127,7 +141,7 @@ class _RegFrame(tk.Frame):
                       FT260_I2C_FLAG.FT260_I2C_START,
                       struct.pack("".join(packstr), reg_addr))
         # Register address is send. Can now retrieve register data
-        (ft_status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
+        (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
                                                                  dev_addr,
                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                                  self.register_size)
@@ -266,7 +280,7 @@ class _DataFrame(tk.Frame):
                 words.append(int(hex_word, 16))
                 packstr += self.word_symbol[self.data_word]
 
-        (ft_status, data_real_read_len, readData) = ft.ftI2cWrite(config.i2c_handle,
+        (ft_status, data_real_read_len, readData, status) = ft.ftI2cWrite(config.i2c_handle,
                                                                   int(config.slave_address, 16),
                                                                   FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                                   struct.pack("".join(packstr), *words)
@@ -285,7 +299,7 @@ class _DataFrame(tk.Frame):
         self.data = update_str
 
     def read_button(self):
-        (ft_status, data_real_read_len, readData) = ft.ftI2cRead(config.i2c_handle,
+        (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
                                                                  int(config.slave_address, 16),
                                                                  FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                                  int(self.data_size) * self.data_word)

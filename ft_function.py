@@ -116,7 +116,7 @@ class FTlib():
         self.ftUART_Init.argtypes = [c_void_p]
         self.ftUART_Init.restype = c_int
 
-        self.self.ftUART_SetBaudRate = self.ftlib.FT260_UART_SetBaudRate
+        self.ftUART_SetBaudRate = self.ftlib.FT260_UART_SetBaudRate
         self.ftUART_SetBaudRate.argtypes = [c_void_p, c_ulong]
         self.ftUART_SetBaudRate.restype = c_int
 
