@@ -1,7 +1,7 @@
 from ft_function import *
 import struct
 
-_log_queue = None
+_callback = None
 _ftlib = None
 
 
@@ -115,7 +115,7 @@ def ftI2cConfig(handle, cfgRate):
 
 
 def ftI2cWrite(handle, i2cDev, flag, data):
-    global _log_queue
+    global _callback
 
     if _ftlib is None:
         return None
@@ -130,16 +130,15 @@ def ftI2cWrite(handle, i2cDev, flag, data):
         print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
     else:
         # Logging block. If enabled and there is data
-        if _log_queue is not None and dwRealAccessData.value > 0:
+        if _callback is not None and dwRealAccessData.value > 0:
             unpackstr = "<" + "B" * dwRealAccessData.value
             writetuple = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
             msg =""
             for i in writetuple:
                 msg += hex(i) + " "
-            if not _log_queue.full():
-                _log_queue.put(['Write', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
-            else:
-                raise Exception("Interprocess communication Queue is full. Can't put new message.")
+
+            _callback(['Write', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
+
 
     # We have to cut return buffer at this point because last byte is \0 closing the string
     return ftStatus, dwRealAccessData.value, buffer.raw[:-1], status.value
@@ -154,7 +153,7 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
     :param readLen:
     :return:
     """
-    global _log_queue
+    global _callback
 
     if _ftlib is None:
         return None
@@ -167,16 +166,14 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
     _ftlib.ftI2CMaster_GetStatus(handle, byref(status))
 
     # Logging block. If enabled, data is valid and there is data
-    if _log_queue is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
+    if _callback is not None and ftStatus == FT260_STATUS.FT260_OK.value and dwRealAccessData.value > 0:
         unpackstr = "<" + "B" * dwRealAccessData.value
         readtuple = struct.unpack(unpackstr, buffer.raw[:dwRealAccessData.value])
         msg = ""
         for i in readtuple:
             msg += hex(i) + " "
-        if not _log_queue.full():
-            _log_queue.put(['Read', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
-        else:
-            raise Exception("Interprocess communication Queue is full. Can't put new message.")
+
+        _callback(['Read', hex(i2cDev), msg, I2C_Mode_Name(flag), status.value])
 
     # We have to cut return buffer at this point because last byte is \0 closing the string
     return ftStatus, dwRealAccessData.value, buffer.raw[:-1], status.value

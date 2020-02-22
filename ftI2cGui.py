@@ -2,7 +2,6 @@ from ft_function import FT260_STATUS, FT260_I2C_FLAG, FT260_I2C_STATUS
 import ft
 import time
 import struct
-from multiprocessing import Queue
 
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -364,11 +363,10 @@ class _CommLog(tk.Frame):
     Communication log for USB-I2C messages
     """
 
-    def __init__(self, parent, q: Queue):
+    def __init__(self, parent):
         """
         Constructor
         """
-        self.q = q
         self.parent = parent
         super().__init__(self.parent)
 
@@ -404,31 +402,18 @@ class _CommLog(tk.Frame):
         # Initialize the counter
         self.message_number = 0
 
-    def run(self):
-        # Ask Tkinter to run message check in 100 ms
-        self.parent.after(100, self.check_messages_and_show)
-
-    def check_messages_and_show(self):
+    def add_new_log_entry(self, itemlist):
         """
-        Check for messages in queue and add them all to treeview if there are any
+        Callback to add data to log window.
+        :param itemlist: list with several items in the order of the tree columns
+        :return: None
         """
-        # Start by asking Tkinter to run this check in next 100 ms, making check loop
-        self.parent.after(100, self.check_messages_and_show)
-        # While there are messages - process them
-        item = None
-        while not self.q.empty():
-            next_in_queue = self.q.get()
-            # Check for killbomb
-            if next_in_queue is None:
-                self.parent.quit()
-                break
-            v = list()
-            v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
-            v.extend(next_in_queue)
-            item = self.tree.insert('', 'end', text=str(self.message_number), values=v)
-            self.message_number += 1
-        if item is not None:
-            self.tree.see(item)
+        v = list()
+        v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+        v.extend(itemlist)
+        item = self.tree.insert('', 'end', text=str(self.message_number), values=v)
+        self.message_number += 1
+        self.tree.see(item)
 
 
 def main():
@@ -454,11 +439,9 @@ def main():
     data = _DataFrame(parent)
     data.data_size = 1
     data.pack(fill="x")
-    q = Queue()
-    ft._log_queue = q
-    comm_log = _CommLog(parent, q)
+    comm_log = _CommLog(parent)
     comm_log.pack(fill="both", expand=True)
-    comm_log.run()
+    ft._callback = comm_log.add_new_log_entry
     parent.mainloop()
 
 
