@@ -205,17 +205,6 @@ class FTlib:
         self.ftGPIO_Write.restype = c_int
 
 
-# bits mask
-BIT0 = 0x01
-BIT1 = 0x02
-BIT2 = 0x04
-BIT3 = 0x08
-BIT4 = 0x10
-BIT5 = 0x20
-BIT6 = 0x40
-BIT7 = 0x80
-
-
 class CtypesEnum(IntEnum):
     """A ctypes-compatible IntEnum superclass."""
 
@@ -225,14 +214,14 @@ class CtypesEnum(IntEnum):
 
 
 class FT260_I2C_STATUS(CtypesEnum):
-    # I2C master status bit masks
-    FT260_CONTROLLER_BUSY = BIT0
-    FT260_ERROR_CONDITION = BIT1
-    FT260_SLAVE_NACK = BIT2
-    FT260_DATA_NACK = BIT3
-    FT260_ARBITRATION_LOST = BIT4
-    FT260_CONTROLLER_IDLE = BIT5
-    FT260_BUS_BUSY = BIT6
+    """ I2C master status bit masks """
+    FT260_CONTROLLER_BUSY = 0x01
+    FT260_ERROR_CONDITION = 0x02
+    FT260_SLAVE_NACK = 0x04
+    FT260_DATA_NACK = 0x08
+    FT260_ARBITRATION_LOST = 0x10
+    FT260_CONTROLLER_IDLE = 0x20
+    FT260_BUS_BUSY = 0x40
 
 
 class FT260_STATUS(CtypesEnum):
