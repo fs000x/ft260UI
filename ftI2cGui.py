@@ -84,7 +84,7 @@ Do you see FT260 in device list?"""
         self.entry_address = tk.Entry(self, width=6)
         self.button_open = tk.Button(self, text="Open device", command=self.open)
         self.button_close = tk.Button(self, text="Close device", command=self.close, state="disabled")
-        self.entry_scroll_message = tkst.ScrolledText(self, height="2")
+        self.entry_scroll_message = tkst.ScrolledText(self, height="3", width = "20")
         label_msb_warning = tk.Label(self, text="Multiple bytes are send and read as MSB first, LSB last.")
 
         label_clock.grid(row=0, column=0, padx=(3, 0))
@@ -385,13 +385,13 @@ class _CommLog(tk.Frame):
         self.tree.heading('#4', text='Message')
         self.tree.heading('#5', text='Mode')
         self.tree.heading('#6', text='Status')
-        self.tree.column('#0', minwidth=40, width=40, stretch=tk.NO)
-        self.tree.column('#1', minwidth=130, width=130, stretch=tk.YES)
-        self.tree.column('#2', minwidth=70, width=70, stretch=tk.YES)
-        self.tree.column('#3', minwidth=70, width=70, stretch=tk.YES)
+        self.tree.column('#0', minwidth=46, width=46, stretch=tk.NO)
+        self.tree.column('#1', minwidth=130, width=130, stretch=tk.NO)
+        self.tree.column('#2', minwidth=70, width=70, stretch=tk.NO)
+        self.tree.column('#3', minwidth=70, width=70, stretch=tk.NO)
         self.tree.column('#4', minwidth=130, width=130, stretch=tk.YES)
-        self.tree.column('#5', minwidth=90, width=90, stretch=tk.YES)
-        self.tree.column('#6', minwidth=50, width=50, stretch=tk.YES)
+        self.tree.column('#5', minwidth=90, width=90, stretch=tk.NO)
+        self.tree.column('#6', minwidth=50, width=50, stretch=tk.NO)
 
         # Scrollbar
         self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
