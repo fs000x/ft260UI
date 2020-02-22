@@ -1,4 +1,4 @@
-from ft_function import *
+from ft_function import FT260_STATUS, FT260_I2C_FLAG, FT260_I2C_STATUS
 import ft
 import time
 import struct
@@ -84,7 +84,7 @@ Do you see FT260 in device list?"""
         self.entry_address = tk.Entry(self, width=6)
         self.button_open = tk.Button(self, text="Open device", command=self.open)
         self.button_close = tk.Button(self, text="Close device", command=self.close, state="disabled")
-        self.entry_scroll_message = tkst.ScrolledText(self, height="3", width = "20")
+        self.entry_scroll_message = tkst.ScrolledText(self, height="3", width="20")
         label_msb_warning = tk.Label(self, text="Multiple bytes are send and read as MSByte first, LSByte last.")
 
         label_clock.grid(row=0, column=0, padx=(3, 0))
@@ -109,7 +109,7 @@ class _DeviceScannerFrame(tk.Frame):
                                                                              address,
                                                                              FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                                              1)
-            if not (status & FT260_I2C_STATUS_SLAVE_NACK):
+            if not (status & FT260_I2C_STATUS.FT260_SLAVE_NACK):
                 self.entry_addresses.insert(tk.END, hex(address) + " ")
 
     def __init__(self, parent):

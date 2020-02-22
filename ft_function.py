@@ -6,7 +6,7 @@ from ctypes import *
 from enum import *
 
 
-class FTlib():
+class FTlib:
     def __init__(self, libpath):
         self.ftlib = windll.LoadLibrary(libpath)
         # FT260 General Functions
@@ -43,7 +43,9 @@ class FTlib():
         self.ftSetWakeupInterrupt.restype = c_int
 
         self.ftSetInterruptTriggerType = self.ftlib.FT260_SetInterruptTriggerType
-        self.ftSetInterruptTriggerType.argtypes = [c_void_p, FT260_Interrupt_Trigger_Type, FT260_Interrupt_Level_Time_Delay]
+        self.ftSetInterruptTriggerType.argtypes = [c_void_p,
+                                                   FT260_Interrupt_Trigger_Type,
+                                                   FT260_Interrupt_Level_Time_Delay]
         self.ftSetInterruptTriggerType.restype = c_int
 
         self.ftSelectGpio2Function = self.ftlib.FT260_SelectGpio2Function
@@ -213,14 +215,6 @@ BIT5 = 0x20
 BIT6 = 0x40
 BIT7 = 0x80
 
-# I2C master status bit masks
-FT260_I2C_STATUS_CONTROLLER_BUSY = BIT0
-FT260_I2C_STATUS_ERROR_CONDITION = BIT1
-FT260_I2C_STATUS_SLAVE_NACK = BIT2
-FT260_I2C_STATUS_DATA_NACK = BIT3
-FT260_I2C_STATUS_ARBITRATION_LOST = BIT4
-FT260_I2C_STATUS_CONTROLLER_IDLE = BIT5
-FT260_I2C_STATUS_BUS_BUSY = BIT6
 
 class CtypesEnum(IntEnum):
     """A ctypes-compatible IntEnum superclass."""
@@ -228,6 +222,17 @@ class CtypesEnum(IntEnum):
     @classmethod
     def from_param(cls, obj):
         return int(obj)
+
+
+class FT260_I2C_STATUS(CtypesEnum):
+    # I2C master status bit masks
+    FT260_CONTROLLER_BUSY = BIT0
+    FT260_ERROR_CONDITION = BIT1
+    FT260_SLAVE_NACK = BIT2
+    FT260_DATA_NACK = BIT3
+    FT260_ARBITRATION_LOST = BIT4
+    FT260_CONTROLLER_IDLE = BIT5
+    FT260_BUS_BUSY = BIT6
 
 
 class FT260_STATUS(CtypesEnum):
