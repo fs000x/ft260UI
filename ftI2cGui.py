@@ -85,6 +85,7 @@ Do you see FT260 in device list?"""
         self.button_open = tk.Button(self, text="Open device", command=self.open)
         self.button_close = tk.Button(self, text="Close device", command=self.close, state="disabled")
         self.entry_scroll_message = tkst.ScrolledText(self, height="2")
+        label_msb_warning = tk.Label(self, text="Multiple bytes are send and read as MSB first, LSB last.")
 
         label_clock.grid(row=0, column=0, padx=(3, 0))
         self.entry_clock.grid(row=0, column=1)
@@ -92,7 +93,8 @@ Do you see FT260 in device list?"""
         self.entry_address.grid(row=1, column=1)
         self.button_open.grid(row=0, column=2, padx=(3, 0))
         self.button_close.grid(row=0, column=3)
-        self.entry_scroll_message.grid(row=0, column=4, rowspan=2, sticky="nsew", padx=5)
+        self.entry_scroll_message.grid(row=0, column=4, rowspan=3, sticky="nsew", padx=5)
+        label_msb_warning.grid(row=2, column=0, padx=(3, 0), columnspan=4)
 
 
 class _DeviceScannerFrame(tk.Frame):
@@ -294,10 +296,10 @@ class _DataFrame(tk.Frame):
                 packstr += self.word_symbol[self.data_word]
 
         (ft_status, data_real_write_len, writeData, status) = ft.ftI2cWrite(config.i2c_handle,
-                                                                          int(config.slave_address, 16),
-                                                                          FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-                                                                          struct.pack("".join(packstr), *words)
-                                                                          )
+                                                                            int(config.slave_address, 16),
+                                                                            FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                            struct.pack("".join(packstr), *words)
+                                                                            )
 
         unpackstr = ">" + self.word_symbol[self.data_word] * int(len(writeData) / self.data_word)
         update_str = ""
@@ -383,7 +385,7 @@ class _CommLog(tk.Frame):
         self.tree.heading('#4', text='Message')
         self.tree.heading('#5', text='Mode')
         self.tree.heading('#6', text='Status')
-        self.tree.column('#0', minwidth=40, width=40, stretch=tk.YES)
+        self.tree.column('#0', minwidth=40, width=40, stretch=tk.NO)
         self.tree.column('#1', minwidth=130, width=130, stretch=tk.YES)
         self.tree.column('#2', minwidth=70, width=70, stretch=tk.YES)
         self.tree.column('#3', minwidth=70, width=70, stretch=tk.YES)
