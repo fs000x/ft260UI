@@ -141,7 +141,8 @@ def ftI2cWrite(handle, i2cDev, flag, data):
             else:
                 raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
-    return ftStatus, dwRealAccessData.value, buffer.raw, status.value
+    # We have to cut return buffer at this point because last byte is \0 closing the string
+    return ftStatus, dwRealAccessData.value, buffer.raw[:-1], status.value
 
 
 def ftI2cRead(handle, i2cDev, flag, readLen):
@@ -159,7 +160,7 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
         return None
     dwRealAccessData = c_ulong(0) # Create variable to store received bytes
     status = c_uint8(0) # To store status after operation
-    buffer = create_string_buffer(readLen) # Create buffer to hold received data as string
+    buffer = create_string_buffer(readLen + 1) # Create string to hold received data with additional terminating byte
     buffer_void = cast(buffer, c_void_p) # Convert the same buffer to void pointer
 
     ftStatus = _ftlib.ftI2CMaster_Read(handle, i2cDev, flag, buffer_void, readLen, byref(dwRealAccessData))
@@ -177,7 +178,8 @@ def ftI2cRead(handle, i2cDev, flag, readLen):
         else:
             raise Exception("Interprocess communication Queue is full. Can't put new message.")
 
-    return ftStatus, dwRealAccessData.value, buffer.raw, status.value
+    # We have to cut return buffer at this point because last byte is \0 closing the string
+    return ftStatus, dwRealAccessData.value, buffer.raw[:-1], status.value
 
 
 def openFtAsUart(Vid, Pid):

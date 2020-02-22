@@ -99,6 +99,8 @@ class _DeviceScannerFrame(tk.Frame):
     global config
 
     def scan_button(self):
+        if config.i2c_handle is None:
+            return
         self.entry_addresses.delete(0, tk.END)
         for address in range(1, 127):
             (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
@@ -127,6 +129,8 @@ class _RegFrame(tk.Frame):
     global config
 
     def read_button(self):
+        if config.i2c_handle is None:
+            return
         packstr = ['>', 'B' if self.register_address_size == 1 else 'H']
         unpackstr = ['>', 'B']
         if self.register_size == 2:
@@ -154,6 +158,8 @@ class _RegFrame(tk.Frame):
             self.register_value = "%#x" % struct.unpack("".join(unpackstr), readData)
 
     def write_button(self):
+        if config.i2c_handle is None:
+            return
         packstr = ['>', 'B', 'B']
         if self.register_address_size == 2:
             packstr[1] = 'H'
@@ -166,7 +172,11 @@ class _RegFrame(tk.Frame):
         # Interpret device address as hexadecimal value
         dev_addr = int(config.slave_address, 16)
         # Interpret value to write as hexadecimal value
-        reg_value = int(self.register_value, 16)
+        try:
+            reg_value = int(self.register_value, 16)
+        # Single hex value may not be valid for any reason. Just drop execution then.
+        except ValueError:
+            return
         ft.ftI2cWrite(config.i2c_handle, dev_addr, FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                       struct.pack("".join(packstr), reg_addr, reg_value))
 
@@ -273,6 +283,8 @@ class _DataFrame(tk.Frame):
             raise Exception("Unknown option {} in data_word combobox.".format(bytes))
 
     def write_button(self):
+        if config.i2c_handle is None:
+            return
         data_to_write = self.data.split(' ')
         words = []
         packstr = '>'
@@ -281,25 +293,24 @@ class _DataFrame(tk.Frame):
                 words.append(int(hex_word, 16))
                 packstr += self.word_symbol[self.data_word]
 
-        (ft_status, data_real_read_len, readData, status) = ft.ftI2cWrite(config.i2c_handle,
+        (ft_status, data_real_write_len, writeData, status) = ft.ftI2cWrite(config.i2c_handle,
                                                                           int(config.slave_address, 16),
                                                                           FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
                                                                           struct.pack("".join(packstr), *words)
                                                                           )
-        # Error checking
-        if data_real_read_len != len(readData):
-            print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
-                                                                                    len(readData)))
-        elif not ft_status == FT260_STATUS.FT260_OK.value:
-            print("Read error : %s\r\n" % ft_status)
 
+        unpackstr = ">" + self.word_symbol[self.data_word] * int(len(writeData) / self.data_word)
         update_str = ""
-        unpackstr = "<" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
-        for i in struct.unpack(unpackstr, readData):
-            update_str = update_str + " " + hex(i)
+        for index, value in enumerate(struct.unpack(unpackstr, writeData)):
+            if index >= data_real_write_len:
+                break
+            update_str = update_str + hex(value) + " "
+
         self.data = update_str
 
     def read_button(self):
+        if config.i2c_handle is None:
+            return
         (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
                                                                          int(config.slave_address, 16),
                                                                          FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
@@ -312,7 +323,7 @@ class _DataFrame(tk.Frame):
         elif not ft_status == FT260_STATUS.FT260_OK.value:
             print("Read error : %s\r\n" % ft_status)
 
-        unpackstr = "<" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
+        unpackstr = ">" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
         update_str = ""
         for i in struct.unpack(unpackstr, readData):
             update_str = update_str + hex(i) + " "
