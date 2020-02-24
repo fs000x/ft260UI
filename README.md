@@ -38,6 +38,12 @@ The GUI is build with tkinter library.
 
 * `pip install tkinter`
 * `python ftI2cGui.py`
+
+## GUI example
+
+This is an example of GUI interface interacting with MPU6050 accelerometer/gyroscope sensor. MPU6050 is enabled
+by writing to 8bit control register. Then actual accelerometer reading can be loaded by reading 16bit register.
+
   ![ftI2cGui](img/ftI2cGui.png)
 
 ## Build standalone application
