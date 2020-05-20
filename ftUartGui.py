@@ -2,6 +2,7 @@ import PySimpleGUI as sg
 import logging
 
 from ft_function import *
+from ft import findDeviceInPaths
 from threading import Thread
 import time
 import signal
@@ -19,23 +20,6 @@ uartConfigDef = {
     'breaking': False
 }
 baudRateList = [1382400, 921600, 460800, 256000, 230400, 128000, 115200, 76800, 57600, 43000, 38400, 19200, 14400, 9600, 4800, 2400, 1200]
-
-def findDeviceInPaths(Vid, Pid):
-    devNum = c_ulong(0)
-    pathBuf = c_wchar_p('/0'*128)
-    sOpenDeviceName = u"vid_{0:04x}&pid_{1:04x}&mi_00".format(Vid, Pid)
-    ret = False
-
-    ftCreateDeviceList(byref(devNum))
-    for i in range(devNum.value):
-        ftGetDevicePath(pathBuf, 128, i)
-        if pathBuf.value.find(sOpenDeviceName) > 0:
-            logging.info("find OpenDevice Name: %s\r\n" % pathBuf.value)
-            ret = True
-        logging.info("Index:%d\r\nPath:%s\r\n\r\n" %(i, pathBuf.value))
-
-    return ret
-
 
 def openFtAsUart(Vid, Pid):
     ftStatus = c_int(0)

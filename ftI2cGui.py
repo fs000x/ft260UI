@@ -1,217 +1,449 @@
-import PySimpleGUI as sg
-
-from ft_function import *
-import signal
+from ft_function import FT260_STATUS, FT260_I2C_FLAG, FT260_I2C_STATUS
+import ft
+import time
 import struct
 
+import tkinter as tk
+import tkinter.ttk as ttk
+import tkinter.scrolledtext as tkst
 
 FT260_Vid = 0x0403
 FT260_Pid = 0x6030
-
-i2cCfgDef = {
-    'flag': FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
-    'rate': 100
-}
-i2cDevDef = 0x1E
-
-def findDeviceInPaths(Vid, Pid):
-    devNum = c_ulong(0)
-    pathBuf = c_wchar_p('/0'*128)
-    sOpenDeviceName = u"vid_{0:04x}&pid_{1:04x}&mi_00".format(Vid, Pid)
-    ret = False
-
-    ftCreateDeviceList(byref(devNum))
-    for i in range(devNum.value):
-        ftGetDevicePath(pathBuf, 128, i)
-        if pathBuf.value.find(sOpenDeviceName) > 0:
-            print("find OpenDevice Name: %s\r\n" % pathBuf.value)
-            ret = True
-        print("Index:%d\r\nPath:%s\r\n\r\n" %(i, pathBuf.value))
-
-    return ret
+config = None
 
 
-def openFtAsI2c(Vid, Pid):
-    ftStatus = c_int(0)
-    handle = c_void_p()
+class _ConfigFrame(tk.Frame):
+    @property
+    def clock(self):
+        return self.entry_clock.get()
 
-    # mode 0 is I2C, mode 1 is UART
-    ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 0, byref(handle))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("Open device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-        return 0
-    else:
-        print("Open device OK")
+    @clock.setter
+    def clock(self, new_value):
+        self.entry_clock.delete(0, tk.END)
+        self.entry_clock.insert(0, new_value)
 
-    ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        ftClose(handle)
-        ftStatus = ftOpenByVidPid(FT260_Vid, FT260_Pid, 1, byref(handle))
-        if not ftStatus == FT260_STATUS.FT260_OK.value:
-            print("ReOpen device Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-            return 0
+    @property
+    def slave_address(self):
+        return self.entry_address.get()
+
+    @slave_address.setter
+    def slave_address(self, new_value):
+        self.entry_address.delete(0, tk.END)
+        self.entry_address.insert(0, new_value)
+
+    def open(self):
+        ft.open_ftlib()
+        if self.i2c_handle is not None:
+            raise Exception("Device already opened. Action to open it twice should be disabled.")
+
+        if not ft.find_device_in_paths(FT260_Vid, FT260_Pid):
+            self.entry_scroll_message.delete("1.0", tk.END)
+            self.entry_scroll_message.insert("1.0", """No FT260 Device found. Was looking USB devices by VID/PID combination and didn't find any. 
+Did you forget to connect FT260 chip to USB?
+Did you install the driver?
+Do you see FT260 in device list?"""
+                                             )
+            return
+
+        self.i2c_handle = ft.openFtAsI2c(FT260_Vid, FT260_Pid, int(self.clock))
+
+        if self.i2c_handle is None:
+            self.entry_scroll_message.delete("1.0", tk.END)
+            self.entry_scroll_message.insert("1.0", "Open I2C error. Was opening FT260 in I2C mode and failed.")
+            return
+
+        self.button_open.config(state="disable")
+        self.entry_clock.config(state="disable")
+        self.button_close.config(state="normal")
+        self.entry_scroll_message.delete("1.0", tk.END)
+
+    def close(self):
+        if self.i2c_handle is not None:
+            ft.close_device(self.i2c_handle)
+            self.i2c_handle = None
+            self.button_open.config(state="normal")
+            self.entry_clock.config(state="normal")
+            self.button_close.config(state="disable")
         else:
-            print("ReOpen device OK")
-        ftStatus = ftI2CMaster_Init(handle, i2cCfgDef['rate'])
-        if not ftStatus == FT260_STATUS.FT260_OK.value:
-            print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-            return 0
+            raise Exception("Device is not opened. Action to close it twice should be disabled.")
 
-    print("I2c Init OK")
+    def __del__(self):
+        if self.i2c_handle is not None:
+            ft.close_device(self.i2c_handle)
 
-    return handle
+    def __init__(self, parent):
+        self.parent = parent
+        self.i2c_handle = None
+        super().__init__(self.parent)
+        self.config(pady=5)
+        self.grid_columnconfigure(4, weight=1)
+        label_clock = tk.Label(self, text="Clock rate [kbps]:")
+        label_address = tk.Label(self, text="I2C slave device address [hex]:")
+        self.entry_clock = tk.Entry(self, width=6)
+        self.entry_address = tk.Entry(self, width=6)
+        self.button_open = tk.Button(self, text="Open device", command=self.open)
+        self.button_close = tk.Button(self, text="Close device", command=self.close, state="disabled")
+        self.entry_scroll_message = tkst.ScrolledText(self, height="3", width="20")
+        label_msb_warning = tk.Label(self, text="Multiple bytes are send and read as MSByte first, LSByte last.")
 
-
-def ftI2cConfig(handle, cfgRate=i2cCfgDef['rate']):
-    # config i2cRateDef
-    ftI2CMaster_Reset(handle)
-    ftStatus = ftI2CMaster_Init(handle, cfgRate)
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("I2c Init Failed, status: %s\r\n" % FT260_STATUS(ftStatus))
-        return 0
-    else:
-        print("I2c Init OK")
-
-
-def ftI2cWrite(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], data=b''):
-    # Write data
-    dwRealAccessData = c_ulong(0)
-    bufferData = c_char_p(bytes(data))
-    buffer = cast(bufferData, c_void_p)
-    ftStatus = ftI2CMaster_Write(handle, i2cDev, flag, buffer, len(data), byref(dwRealAccessData))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("I2c Write NG : %s\r\n" % FT260_STATUS(ftStatus))
-    else:
-        print("Write bytes : %d\r\n" % dwRealAccessData.value)
+        label_clock.grid(row=0, column=0, padx=(3, 0))
+        self.entry_clock.grid(row=0, column=1)
+        label_address.grid(row=1, column=0, padx=(3, 0))
+        self.entry_address.grid(row=1, column=1)
+        self.button_open.grid(row=0, column=2, padx=(3, 0))
+        self.button_close.grid(row=0, column=3)
+        self.entry_scroll_message.grid(row=0, column=4, rowspan=3, sticky="nsew", padx=5)
+        label_msb_warning.grid(row=2, column=0, padx=(3, 0), columnspan=4)
 
 
-def ftI2cRead(handle, i2cDev=i2cDevDef, flag=i2cCfgDef['flag'], readLen=1):
-    # Read data
-    dwRealAccessData = c_ulong(0)
-    bufferBytes = b'\0'*readLen
-    buffer2Data = c_char_p(b'\0'*readLen)
+class _DeviceScannerFrame(tk.Frame):
+    global config
 
-    buffer2 = cast(buffer2Data, c_void_p)
-    ftStatus = ftI2CMaster_Read(handle, i2cDev, flag, buffer2, readLen, byref(dwRealAccessData))
-    if not ftStatus == FT260_STATUS.FT260_OK.value:
-        print("UART Read NG : %s\r\n" % FT260_STATUS(ftStatus))
-    else:
-        bufferBytes = b'\0'
-        print("Read bytes : %d\r\n" % dwRealAccessData.value)
-        print(len(buffer2Data.value), buffer2Data, buffer2Data.value)
-        print(bufferBytes)
+    def scan_button(self):
+        if config.i2c_handle is None:
+            return
+        self.entry_addresses.delete(0, tk.END)
+        for address in range(1, 127):
+            (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
+                                                                             address,
+                                                                             FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                             1)
+            if not (status & FT260_I2C_STATUS.FT260_SLAVE_NACK):
+                self.entry_addresses.insert(tk.END, hex(address) + " ")
 
-    return buffer2Data.value
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(self.parent)
+        self.config(pady=5)
+        self.grid_columnconfigure(2, weight=1)
+
+        button_scan = tk.Button(self, text="Scan I2C bus", command=self.scan_button)
+        label_scan_result = tk.Label(self, text="Found addresses:")
+        self.entry_addresses = tk.Entry(self, width=30)
+
+        button_scan.grid(row=0, column=0)
+        label_scan_result.grid(row=0, column=1, padx=(3, 0))
+        self.entry_addresses.grid(row=0, column=2, sticky="ew")
 
 
+class _RegFrame(tk.Frame):
+    global config
+
+    def read_button(self):
+        if config.i2c_handle is None:
+            return
+        packstr = ['>', 'B' if self.register_address_size == 1 else 'H']
+        unpackstr = ['>', 'B']
+        if self.register_size == 2:
+            unpackstr[1] = 'H'
+        elif self.register_size == 4:
+            unpackstr[1] = 'I'
+        # Interpret register address as hexadecimal value
+        reg_addr = int(self.register_address, 16)
+        # Interpret device address as hexadecimal value
+        dev_addr = int(config.slave_address, 16)
+        ft.ftI2cWrite(config.i2c_handle,
+                      dev_addr,
+                      FT260_I2C_FLAG.FT260_I2C_START,
+                      struct.pack("".join(packstr), reg_addr))
+        # Register address is send. Can now retrieve register data
+        (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
+                                                                         dev_addr,
+                                                                         FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                         self.register_size)
+        if data_real_read_len != len(readData):
+            print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len, len(readData)))
+        elif not ft_status == FT260_STATUS.FT260_OK.value:
+            print("Read error : %s\r\n" % ft_status)
+        if not len(readData) == 0:
+            self.register_value = "%#x" % struct.unpack("".join(unpackstr), readData)
+
+    def write_button(self):
+        if config.i2c_handle is None:
+            return
+        packstr = ['>', 'B', 'B']
+        if self.register_address_size == 2:
+            packstr[1] = 'H'
+        if self.register_size == 2:
+            packstr[2] = 'H'
+        elif self.register_size == 4:
+            packstr[2] = 'I'
+        # Interpret register address as hexadecimal value
+        reg_addr = int(self.register_address, 16)
+        # Interpret device address as hexadecimal value
+        dev_addr = int(config.slave_address, 16)
+        # Interpret value to write as hexadecimal value
+        try:
+            reg_value = int(self.register_value, 16)
+        # Single hex value may not be valid for any reason. Just drop execution then.
+        except ValueError:
+            return
+        ft.ftI2cWrite(config.i2c_handle, dev_addr, FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                      struct.pack("".join(packstr), reg_addr, reg_value))
+
+    @property
+    def register_address(self):
+        return self.entry_address.get()
+
+    @register_address.setter
+    def register_address(self, new_value):
+        self.entry_address.delete(0, tk.END)
+        self.entry_address.insert(0, new_value)
+
+    @property
+    def register_value(self):
+        return self.entry_value.get()
+
+    @register_value.setter
+    def register_value(self, new_value):
+        self.entry_value.delete(0, tk.END)
+        self.entry_value.insert(0, new_value)
+
+    @property
+    def register_address_size(self):
+        size = self.combo_reg_bits.get()
+        if size == "8 bits":
+            return 1
+        elif size == "16 bits":
+            return 2
+        else:
+            raise Exception("Unknown option {} in register_address_size combobox.".format(bytes))
+
+    @property
+    def register_size(self):
+        size = self.combo_value_bits.get()
+        if size == "8 bits":
+            return 1
+        elif size == "16 bits":
+            return 2
+        elif size == "32 bits":
+            return 4
+        else:
+            raise Exception("Unknown option {} in register_size combobox.".format(bytes))
+
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(self.parent)
+        self.config(pady=5)
+        label_reg_bits = tk.Label(self, text="Register address size:")
+        self.combo_reg_bits = ttk.Combobox(self, values=["8 bits", "16 bits"], width=6)
+        self.combo_reg_bits.current(0)
+        label_address = tk.Label(self, text="Register address:")
+        self.entry_address = tk.Entry(self, width=6)
+        label_value_bits = tk.Label(self, text="Register value size:")
+        self.combo_value_bits = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
+        self.combo_value_bits.current(0)
+        label_value = tk.Label(self, text="Register value:")
+        self.entry_value = tk.Entry(self, width=10)
+        button_write = tk.Button(self, text="Write", command=self.write_button)
+        button_read = tk.Button(self, text="Read", command=self.read_button)
+
+        label_reg_bits.grid(row=0, column=0, padx=(3, 0))
+        self.combo_reg_bits.grid(row=0, column=1)
+        label_address.grid(row=0, column=2, padx=(3, 0))
+        self.entry_address.grid(row=0, column=3)
+        label_value_bits.grid(row=0, column=4, padx=(3, 0))
+        self.combo_value_bits.grid(row=0, column=5)
+        label_value.grid(row=0, column=6, padx=(3, 0))
+        self.entry_value.grid(row=0, column=7)
+        button_write.grid(row=0, column=8)
+        button_read.grid(row=0, column=9)
 
 
-is_sigInt_up = False
-def sigint_handler(sig, frame):
-    print("SIGINT")
-    global is_sigInt_up
-    is_sigInt_up = True
+class _DataFrame(tk.Frame):
+    global config
+
+    @property
+    def data_size(self):
+        return self.entry_data_size.get()
+
+    @data_size.setter
+    def data_size(self, new_value):
+        self.entry_data_size.delete(0, tk.END)
+        self.entry_data_size.insert(0, new_value)
+
+    @property
+    def data(self):
+        return self.entry_data.get()
+
+    @data.setter
+    def data(self, new_value):
+        self.entry_data.delete(0, tk.END)
+        self.entry_data.insert(0, new_value)
+
+    @property
+    def data_word(self):
+        size = self.combo_word_size.get()
+        if size == "8 bits":
+            return 1
+        elif size == "16 bits":
+            return 2
+        elif size == "32 bits":
+            return 4
+        else:
+            raise Exception("Unknown option {} in data_word combobox.".format(bytes))
+
+    def write_button(self):
+        if config.i2c_handle is None:
+            return
+        data_to_write = self.data.split(' ')
+        words = []
+        packstr = '>'
+        for hex_word in data_to_write:
+            if hex_word != "":
+                words.append(int(hex_word, 16))
+                packstr += self.word_symbol[self.data_word]
+
+        (ft_status, data_real_write_len, writeData, status) = ft.ftI2cWrite(config.i2c_handle,
+                                                                            int(config.slave_address, 16),
+                                                                            FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                            struct.pack("".join(packstr), *words)
+                                                                            )
+
+        unpackstr = ">" + self.word_symbol[self.data_word] * int(len(writeData) / self.data_word)
+        update_str = ""
+        for index, value in enumerate(struct.unpack(unpackstr, writeData)):
+            if index >= data_real_write_len:
+                break
+            update_str = update_str + hex(value) + " "
+
+        self.data = update_str
+
+    def read_button(self):
+        if config.i2c_handle is None:
+            return
+        (ft_status, data_real_read_len, readData, status) = ft.ftI2cRead(config.i2c_handle,
+                                                                         int(config.slave_address, 16),
+                                                                         FT260_I2C_FLAG.FT260_I2C_START_AND_STOP,
+                                                                         int(self.data_size) * self.data_word)
+
+        # Error checking
+        if data_real_read_len != len(readData):
+            print("Read {} bytes from ft260 lib, but {} bytes are in buffer".format(data_real_read_len,
+                                                                                    len(readData)))
+        elif not ft_status == FT260_STATUS.FT260_OK.value:
+            print("Read error : %s\r\n" % ft_status)
+
+        unpackstr = ">" + self.word_symbol[self.data_word] * int(len(readData) / self.data_word)
+        update_str = ""
+        for i in struct.unpack(unpackstr, readData):
+            update_str = update_str + hex(i) + " "
+        self.data = update_str
+
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(self.parent)
+        self.config(pady=5)
+        self.grid_columnconfigure(5, weight=1)
+
+        label_data_size = tk.Label(self, text="Data length:")
+        self.entry_data_size = tk.Entry(self, width=6)
+        label_word_size = tk.Label(self, text="Data word size:")
+        self.combo_word_size = ttk.Combobox(self, values=["8 bits", "16 bits", "32 bits"], width=6)
+        self.combo_word_size.current(0)
+        label_data = tk.Label(self, text="Data [hex]:")
+        self.entry_data = tk.Entry(self, width=30)
+        button_write = tk.Button(self, text="Write", command=self.write_button)
+        button_read = tk.Button(self, text="Read", command=self.read_button)
+
+        label_data_size.grid(row=0, column=0, padx=(3, 0))
+        self.entry_data_size.grid(row=0, column=1)
+        label_word_size.grid(row=0, column=2, padx=(3, 0))
+        self.combo_word_size.grid(row=0, column=3)
+        label_data.grid(row=0, column=4, padx=(3, 0))
+        self.entry_data.grid(row=0, column=5, sticky="we")
+        button_write.grid(row=0, column=6)
+        button_read.grid(row=0, column=7)
+
+        self.word_symbol = {1: "B", 2: "H", 4: "I"}
+
+
+class _CommLog(tk.Frame):
+    """
+    Communication log for USB-I2C messages
+    """
+
+    def __init__(self, parent):
+        """
+        Constructor
+        """
+        self.parent = parent
+        super().__init__(self.parent)
+
+        # Inside frame grid config
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        # Set the treeview
+        self.tree = ttk.Treeview(self, columns=('Timestamp', 'Direction', 'Address', 'Message', 'Mode', 'Status'))
+        self.tree.heading('#0', text='#')
+        self.tree.heading('#1', text='Timestamp')
+        self.tree.heading('#2', text='Direction')
+        self.tree.heading('#3', text='Address')
+        self.tree.heading('#4', text='Message')
+        self.tree.heading('#5', text='Mode')
+        self.tree.heading('#6', text='Status')
+        self.tree.column('#0', minwidth=46, width=46, stretch=tk.NO)
+        self.tree.column('#1', minwidth=130, width=130, stretch=tk.NO)
+        self.tree.column('#2', minwidth=70, width=70, stretch=tk.NO)
+        self.tree.column('#3', minwidth=70, width=70, stretch=tk.NO)
+        self.tree.column('#4', minwidth=130, width=130, stretch=tk.YES)
+        self.tree.column('#5', minwidth=90, width=90, stretch=tk.NO)
+        self.tree.column('#6', minwidth=50, width=50, stretch=tk.NO)
+
+        # Scrollbar
+        self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.vsb.set)
+
+        # Layout
+        self.tree.grid(row=0, column=0, sticky='nsew')
+        self.vsb.grid(row=0, column=1, sticky='ns')
+
+        # Initialize the counter
+        self.message_number = 0
+
+    def add_new_log_entry(self, itemlist):
+        """
+        Callback to add data to log window.
+        :param itemlist: list with several items in the order of the tree columns
+        :return: None
+        """
+        v = list()
+        v.append(time.strftime("%Y-%m-%d %H:%M:%S"))
+        v.extend(itemlist)
+        item = self.tree.insert('', 'end', text=str(self.message_number), values=v)
+        self.message_number += 1
+        self.tree.see(item)
 
 
 def main():
-    if not findDeviceInPaths(FT260_Vid, FT260_Pid):
-        sg.Popup("No FT260 Device")
-        exit()
+    global config
 
-    i2cHandle = openFtAsI2c(FT260_Vid, FT260_Pid)
-    if not i2cHandle:
-        sg.Popup("open i2cHandle error")
-        exit()
-
-    signal.signal(signal.SIGINT, sigint_handler)
-
-    leftFrame = [[sg.Output(size=(30, 30))]]
-
-    cfgFrame_lay = [
-                [sg.Text('I2C Flag', size=(10, 1)), sg.InputCombo([i.name for i in FT260_I2C_FLAG], default_value = i2cCfgDef['flag'].name, size=(30,1), key="flag")],
-                [sg.Text('Clock Rate', size=(10, 1)), sg.InputText(str(i2cCfgDef['rate']), size=(5,1), key="rate", do_not_clear=True)],
-                    ]
-
-    rwReg_lay = [
-                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(hex(i2cDevDef), size=(5,1), key="regDev", do_not_clear=True)],
-                [sg.Text('Reg Bits', size=(10, 1)),sg.InputCombo([8, 16], default_value = 8, size=(2,1), key="regBits")],
-                [sg.Text('Reg', size=(10, 1)),sg.InputText(hex(0), size=(5,1), key="reg", do_not_clear=True)],
-                [sg.Text('Value Bits', size=(10, 1)),sg.InputCombo([8, 16, 32], default_value = 8, size=(2,1), key="valueBits")],
-                [sg.Text('Value', size=(5, 1)),sg.InputText(hex(0), size=(12,1), key="regValue", do_not_clear=True)],
-                [sg.ReadButton('RegRead', size=(8,1)), sg.ReadButton('RegWrite', size=(8,1))]
-                ]
-    rwData_lay = [
-                [sg.Text('DevAddr', size=(10, 1)),sg.InputText(hex(i2cDevDef), size=(5,1), key="dataDev", do_not_clear=True)],
-                [sg.Text('R/W Len', size=(10, 1)),sg.InputText('1', size=(5,1), key="dataLen", do_not_clear=True)],
-                [sg.Text('Data', size=(5, 1)),sg.Multiline(hex(0), size=(12,1), key="data", do_not_clear=True)],
-                [sg.ReadButton('DataRead', size=(8,1)), sg.ReadButton('DataWrite', size=(9,1))]
-                ]
-    rightFrame = [
-                [sg.Frame("Config", cfgFrame_lay, size=(50, 30))],
-                [sg.Frame("Read&Write Reg", rwReg_lay, size=(50, 30)), sg.Frame("Read&Write Data", rwData_lay)]
-                ]
-
-    layout = [
-        [sg.Frame('Log', leftFrame, size=(30, 30)), sg.Frame('', rightFrame, size=(130, 5))]
-            ]
+    parent = tk.Tk()
+    parent.title("FT260 I2C")
+    config = _ConfigFrame(parent)
+    config.clock = "100"
+    config.slave_address = "0x68"
+    config.pack(fill="x", expand=False)
+    separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
+    separator.pack(fill="x")
+    scanner = _DeviceScannerFrame(parent)
+    scanner.pack(fill="x")
+    separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
+    separator.pack(fill="x")
+    reg = _RegFrame(parent)
+    reg.pack(fill="x")
+    reg.register_address = "0x00"
+    separator = ttk.Separator(parent, orient=tk.HORIZONTAL)
+    separator.pack(fill="x")
+    data = _DataFrame(parent)
+    data.data_size = 1
+    data.pack(fill="x")
+    comm_log = _CommLog(parent)
+    comm_log.pack(fill="both", expand=True)
+    ft._callback = comm_log.add_new_log_entry
+    parent.mainloop()
 
 
-    window = sg.Window('FT260 I2C').Layout(layout)
-
-    # ---===--- Loop taking in user input and using it to call scripts --- #
-    while True:
-        (button, value) = window.Read()
-        #sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
-        global is_sigInt_up
-        if is_sigInt_up or button is None: # window.Read will block
-            print("Close i2c Handle")
-            ftClose(i2cHandle)
-            break # exit button clicked
-        elif button == 'RegWrite':
-            packstr = ['>', 'B', 'B']
-            if int(value['regBits']) == 16:
-                packstr[1] = 'H'
-            if int(value['valueBits']) == 16:
-                packstr[2] = 'H'
-            elif int(value['valueBits']) == 32:
-                packstr[2] = 'I'
-            ftI2cWrite(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], struct.pack("".join(packstr), int(value['reg'],16), int(value['regValue'],16)))
-        elif button == 'RegRead':
-            packstr = ['>', 'B']
-            unpackstr = ['>', 'B']
-            readLen = 1
-            if int(value['regBits']) == 16:
-                packstr[1] = 'H'
-            if int(value['valueBits']) == 16:
-                readLen = 2
-                unpackstr[1] = 'H'
-            elif int(value['valueBits']) == 32:
-                readLen = 4
-                unpackstr[1] = 'I'
-            ftI2cWrite(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], struct.pack("".join(packstr), int(value['reg'],16)))
-            readData = ftI2cRead(i2cHandle, int(value["regDev"],16), FT260_I2C_FLAG[value["flag"]], readLen)
-            print(len(readData), readData, unpackstr)
-            if not len(readData) == 0:
-                window.FindElement("regValue").Update("%#x" % struct.unpack("".join(unpackstr), readData))
-            else:
-                window.FindElement("regValue").Update("0x00")
-
-        elif button == 'DataRead':
-            updateStr = ""
-            readData = ftI2cRead(i2cHandle, int(value["dataDev"],16), FT260_I2C_FLAG[value["flag"]], int(value['dataLen']))
-            readLen = len(readData)
-            unpackstr = "<"+"B"*readLen
-            print(readLen, readData, unpackstr)
-            if readLen == 0:
-                updateStr = "0x00"
-            else:
-                for i in struct.unpack(unpackstr, readData):
-                    updateStr = updateStr + " " + hex(i)
-            window.FindElement("data").Update(updateStr)
-
-        elif button == 'DataWrite':
-            sg.Popup('The button clicked was "{}"'.format(button), 'The values are', value)
-
-
-
-main()
+if __name__ == "__main__":
+    main()
