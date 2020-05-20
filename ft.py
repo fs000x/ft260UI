@@ -39,7 +39,7 @@ def find_device_in_paths(vid, pid):
     # For each valid device try to use the composite device (with &mi_00)
     s_open_device_name += "&mi_00"
     for i in range(len(valid_devices)):
-        if path_buf.value.find(s_open_device_name) > 0:
+        if valid_devices[i].find(s_open_device_name) > 0:
             print("Composite FT260 device found on path {}\r\n".format(valid_devices[i]))
         else:
             print("Not composite FT260 device found on path {}\r\n".format(valid_devices[i]))
